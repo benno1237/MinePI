@@ -1,7 +1,7 @@
 # MinePI
 ## _The Minecraft Utility Library Of Your Choice!_
 
-[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)]
+![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)
 
 MinePI is a Minecraft Utility Library that uses the MojangAPI
 
