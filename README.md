@@ -77,7 +77,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 
 #### Returns
 - `name` [str] - Players username at the given time (current if not given)
-- 
+
 ## Installation
 
 ```sh
