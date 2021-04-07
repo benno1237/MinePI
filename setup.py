@@ -9,7 +9,7 @@ setup(
     author = "benno1237, honigkuchen",
     author_email = "benno.kollreider@gmail.com",
     url = "https://github.com/benno1237/MinePI",
-    download_url = "",
+    download_url = "https://github.com/benno1237/MinePI/archive/refs/tags/0.1.tar.gz",
     keywords = ["Minecraft", "Skin", "Render", "Head", "UUID"],
     install_requires = [
         "aiohttp",
