@@ -7,8 +7,8 @@ setup(
     license = "MIT",
     description = "Minecraft utility library.",
     author = "benno1237, honigkuchen",
-    author_email = "",
-    url = "",
+    author_email = "benno.kollreider@gmail.com",
+    url = "https://github.com/benno1237/MinePI",
     download_url = "",
     keywords = ["Minecraft", "Skin", "Render", "Head", "UUID"],
     install_requires = [
