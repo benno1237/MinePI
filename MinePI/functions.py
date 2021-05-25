@@ -3,7 +3,7 @@ import aiohttp
 import json
 from PIL import Image
 
-class MinePI:
+class minepi:
     async def render_3d_skin(
         user: str = "",
         vr: int = -25, 
