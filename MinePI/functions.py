@@ -1,6 +1,7 @@
 from .skin_render import Render
 import aiohttp
 import json
+from PIL import Image
 
 class MinePI:
     async def render_3d_skin(
