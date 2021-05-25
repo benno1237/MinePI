@@ -4,6 +4,7 @@
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
 MinePI is a Minecraft Utility Library that uses the MojangAPI
+The rendering logic was inspired by [supermamie](https://github.com/supermamie/php-Minecraft-3D-skin)'s php skin renderer, but further improved by honigkuchen for this project
 
 ## Features
 
