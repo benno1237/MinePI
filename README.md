@@ -1,20 +1,20 @@
 # MinePI
 ## _The Minecraft Utility Library Of Your Choice!_
 
-![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)
+[![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
 MinePI is a Minecraft Utility Library that uses the MojangAPI
 
 ## Features
 
-- Render full Minecraft Skins
-- Render Minecraft Heads
-- convert usernames to UUIDs
-- convert UUIDs to usernames
+- [Render full Minecraft Skins](#render_3d_skin)
+- [Render Minecraft Heads](#render_3d_head)
+- [convert usernames to UUIDs](#to_uuid)
+- [convert UUIDs to usernames](#to_name)
 
-## Usage
+## Methods
 
-### `await get_3d_skin`
+### `render_3d_skin`
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -35,7 +35,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - [`Image`](https://pillow.readthedocs.io/en/stable/reference/Image.html) - the rendered skin 
 
-### `await get_3d_head`
+### `render_3d_head`
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -50,7 +50,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - [`Image`](https://pillow.readthedocs.io/en/stable/reference/Image.html) - the rendered head 
 
-### `await get_skin`
+### `get_skin`
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -59,7 +59,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - [`Image`](https://pillow.readthedocs.io/en/stable/reference/Image.html) - the skin image returned by the MojangAPI
 
-### `await to_uuid`
+### `to_uuid`
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -68,7 +68,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - `uuid` [str] - Players UUID
 
-### `await to_name`
+### `to_name`
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -77,6 +77,22 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 
 #### Returns
 - `name` [str] - Players username at the given time (current if not given)
+- 
+
+## Usage
+
+Render a full body skin by name
+```py
+from MinePI import MinePI
+from PIL import Image
+import asyncio
+
+async def main():
+    im = await MinePI.render_3d_skin("Herobrine")
+    im.show()
+    
+asyncio.run(main())
+```
 
 ## Installation
 
