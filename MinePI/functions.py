@@ -1,9 +1,10 @@
-from .skin_render import Render
+from MinePI.skin_render import Render
 import aiohttp
 import json
 from PIL import Image
+import asyncio
 
-class minepi:
+class MinePI:
     async def render_3d_skin(
         user: str = "",
         vr: int = -25, 
@@ -70,3 +71,7 @@ class minepi:
                             return name_dict[0]["name"]
                 elif resp.status == 400:
                     raise ValueError(name_dict["errorMessage"])
+
+if __name__ == "__main__":
+    im = asyncio.run(MinePI.render_3d_skin("Herobrine"))
+    im.show()

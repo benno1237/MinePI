@@ -1,1 +1,1 @@
-from MinePI.functions import minepi
+from MinePI.functions import MinePI
