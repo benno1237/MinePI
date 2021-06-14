@@ -15,7 +15,7 @@ The rendering logic was inspired by [supermamie](https://github.com/supermamie/p
 
 ## Methods
 
-### `render_3d_skin`
+### `render_3d_skin`<img src="https://user-images.githubusercontent.com/35632314/121787335-c9d35c00-cbc5-11eb-9060-f8cc88f50b09.PNG" width="189" height="397" align="right">
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -36,7 +36,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - [`Image`](https://pillow.readthedocs.io/en/stable/reference/Image.html) - the rendered skin 
 
-### `render_3d_head`
+### `render_3d_head`<img src="https://user-images.githubusercontent.com/35632314/121787387-16b73280-cbc6-11eb-80bd-b32b8a649bb6.png" width="138" height="148" align="right">
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -51,7 +51,7 @@ This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.ht
 #### Returns
 - [`Image`](https://pillow.readthedocs.io/en/stable/reference/Image.html) - the rendered head 
 
-### `get_skin`
+### `get_skin`<img src="https://user-images.githubusercontent.com/35632314/121787545-ed4ad680-cbc6-11eb-802a-04d7dfa1b53a.png" width="138" height="148" align="right">
 This function is a [coroutine](https://docs.python.org/3/library/asyncio-task.html)
 
 #### Parameters
@@ -96,6 +96,12 @@ asyncio.run(main())
 
 ## Installation
 
+From PyPi:
 ```sh
 pip install MinePI
+```
+
+From Github:
+```sh
+pip install git+https://github.com/benno1237/MinePI.git#egg=MinePI
 ```
