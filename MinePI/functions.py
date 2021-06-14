@@ -72,7 +72,3 @@ class MinePI:
                             return name_dict[0]["name"]
                 elif resp.status == 400:
                     raise ValueError(name_dict["errorMessage"])
-
-if __name__ == "__main__":
-    im = asyncio.run(MinePI.render_3d_skin("Herobrine", hr=-145, skin_image=test_img))
-    im.show()
