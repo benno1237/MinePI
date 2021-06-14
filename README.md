@@ -1,5 +1,3 @@
-Welcome file
-Welcome file
 # MinePI
 ## _The Minecraft Utility Library Of Your Choice!_
 
