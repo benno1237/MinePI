@@ -1,4 +1,4 @@
-from skin_render import Render
+from .skin_render import Render
 
 import aiohttp
 import json
