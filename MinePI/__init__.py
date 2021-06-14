@@ -1,4 +1,4 @@
-from functions import MinePI
+from .functions import MinePI
 
 class MinePI(MinePI):
     pass
