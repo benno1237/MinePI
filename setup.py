@@ -3,7 +3,7 @@ from distutils.core import setup
 setup(
     name = "MinePI",
     packages = ["MinePI"],
-    version = "0.2.2",
+    version = "0.3.0a",
     license = "MIT",
     description = "Minecraft utility library.",
     author = "benno1237, honigkuchen",
