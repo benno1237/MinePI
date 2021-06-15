@@ -5,6 +5,7 @@ import base64
 import io
 from PIL import Image, ImageDraw, ImageOps
 import time
+import asyncio
 
 cos_a = None
 sin_a = None
@@ -45,7 +46,7 @@ def append_dict(dic, key1, key2, key3, value):
     return dic
 
 class Render:
-    def __init__(self, user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, head_only, display_hair, display_layers, aa):
+    def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int, head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
             self.start = time.time()
             self.is_new_skin = True
             self.vr = vr
@@ -65,8 +66,9 @@ class Render:
     async def get_skin_mojang(self):
         if len(self.user) <= 16:
             async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.mojang.com/users/profiles/minecraft/" + self.user) as response:
+                async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{self.user}") as response:
                     resp = await response.text()
+                    print(resp)
             if response.status != 200:
                 raise ValueError("Username is invalid")
             resp = json.loads(resp)
@@ -81,7 +83,7 @@ class Render:
                     raise ValueError("UUID is invalid")
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get("https://sessionserver.mojang.com/session/minecraft/profile/" + uuid) as resp:
+                    async with session.get(f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}") as resp:
                         resp_sessionserver = await resp.text()
             if resp_sessionserver == "":
                 raise ValueError("UUID is invalid")
@@ -130,7 +132,7 @@ class Render:
 
         new_skin.paste(leg_top, (24, 48))
         new_skin.paste(leg_bottom, (20, 48))
-        new_skin.paste(leg_left, (16, 52))
+        #new_skin.paste(leg_left, (16, 52))
         new_skin.paste(leg_front, (20, 52))
         new_skin.paste(leg_right, (24, 52))
         new_skin.paste(leg_back, (28, 52))
@@ -1578,3 +1580,26 @@ class Polygon():
         for dot in self.dots:
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
+if __name__ == "__main__":
+    user: str = "Metriximor",
+    vr: int = -25, 
+    hr: int = 35, 
+    hrh: int = 0, 
+    vrll: int = 0, 
+    vrrl: int = 0, 
+    vrla: int = 0, 
+    vrra: int = 0, 
+    ratio: int = 12,
+    display_hair: bool = True,
+    display_second_layer: bool = True,
+    aa: bool = False,
+    skin_image: Image = None
+
+    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, False, display_hair, display_second_layer, aa)
+    
+    async def test():
+        im = await render.get_render(skin_image)
+        await asyncio.sleep(0.1)
+        return im
+
+    im = asyncio.run(test())
