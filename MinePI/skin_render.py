@@ -121,26 +121,30 @@ class Render:
         new_skin.paste(skin, (0, 0))
 
         #copy the leg 
-        leg_upper = ImageOps.mirror(skin.crop((4, 16, 12, 20)))
+        leg_top = ImageOps.mirror(skin.crop((4, 16, 8, 20)))
+        leg_bottom = ImageOps.mirror(skin.crop((8, 16, 12, 20)))
         leg_left = ImageOps.mirror(skin.crop((8, 20, 12, 32)))
         leg_back = ImageOps.mirror(skin.crop((12, 20, 16, 32)))
         leg_front = ImageOps.mirror(skin.crop((4, 20, 8, 32)))
         leg_right = ImageOps.mirror(skin.crop((0, 20, 4, 32)))
 
-        new_skin.paste(leg_upper, (20, 48))
+        new_skin.paste(leg_top, (24, 48))
+        new_skin.paste(leg_bottom, (20, 48))
         new_skin.paste(leg_left, (16, 52))
         new_skin.paste(leg_front, (20, 52))
         new_skin.paste(leg_right, (24, 52))
         new_skin.paste(leg_back, (28, 52))
 
         #copy the arm
-        arm_upper = ImageOps.mirror(skin.crop((44, 16, 52, 20)))
+        arm_top = ImageOps.mirror(skin.crop((44, 16, 48, 20)))
+        arm_bottom = ImageOps.mirror(skin.crop((48, 16, 52, 20)))
         arm_left = ImageOps.mirror(skin.crop((48, 20, 52, 32)))
         arm_back = ImageOps.mirror(skin.crop((52, 20, 56, 32)))
         arm_front = ImageOps.mirror(skin.crop((44, 20, 48, 32)))
         arm_right = ImageOps.mirror(skin.crop((40, 20, 44, 32)))
 
-        new_skin.paste(arm_upper, (36, 48))
+        new_skin.paste(arm_top, (32, 48))
+        new_skin.paste(arm_bottom, (36, 48))
         new_skin.paste(arm_left, (32, 52))
         new_skin.paste(arm_front, (36, 52))
         new_skin.paste(arm_right, (40, 52))
