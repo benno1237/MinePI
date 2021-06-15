@@ -68,7 +68,6 @@ class Render:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{self.user}") as response:
                     resp = await response.text()
-                    print(resp)
             if response.status != 200:
                 raise ValueError("Username is invalid")
             resp = json.loads(resp)
@@ -130,9 +129,9 @@ class Render:
         leg_front = ImageOps.mirror(skin.crop((4, 20, 8, 32)))
         leg_right = ImageOps.mirror(skin.crop((0, 20, 4, 32)))
 
-        new_skin.paste(leg_top, (24, 48))
-        new_skin.paste(leg_bottom, (20, 48))
-        #new_skin.paste(leg_left, (16, 52))
+        new_skin.paste(leg_top, (20, 48))
+        new_skin.paste(leg_bottom, (24, 48))
+        new_skin.paste(leg_left, (16, 52))
         new_skin.paste(leg_front, (20, 52))
         new_skin.paste(leg_right, (24, 52))
         new_skin.paste(leg_back, (28, 52))
@@ -145,8 +144,8 @@ class Render:
         arm_front = ImageOps.mirror(skin.crop((44, 20, 48, 32)))
         arm_right = ImageOps.mirror(skin.crop((40, 20, 44, 32)))
 
-        new_skin.paste(arm_top, (32, 48))
-        new_skin.paste(arm_bottom, (36, 48))
+        new_skin.paste(arm_top, (36, 48))
+        new_skin.paste(arm_bottom, (40, 48))
         new_skin.paste(arm_left, (32, 52))
         new_skin.paste(arm_front, (36, 52))
         new_skin.paste(arm_right, (40, 52))
@@ -1581,25 +1580,22 @@ class Polygon():
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
 if __name__ == "__main__":
-    user: str = "Metriximor",
-    vr: int = -25, 
-    hr: int = 35, 
-    hrh: int = 0, 
-    vrll: int = 0, 
-    vrrl: int = 0, 
-    vrla: int = 0, 
-    vrra: int = 0, 
-    ratio: int = 12,
-    display_hair: bool = True,
-    display_second_layer: bool = True,
-    aa: bool = False,
+    user: str = "Metriximor"
+    vr: int = 50
+    hr: int = 35
+    hrh: int = 0
+    vrll: int = 0
+    vrrl: int = 0
+    vrla: int = 0
+    vrra: int = 0
+    ratio: int = 12
+    head_only: bool = False
+    display_hair: bool = True
+    display_second_layer: bool = True
+    aa: bool = False
     skin_image: Image = None
 
-    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, False, display_hair, display_second_layer, aa)
-    
-    async def test():
-        im = await render.get_render(skin_image)
-        await asyncio.sleep(0.1)
-        return im
+    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, head_only, display_hair, display_second_layer, aa)
 
-    im = asyncio.run(test())
+    im = asyncio.run(render.get_render(skin_image))
+    im.show()
