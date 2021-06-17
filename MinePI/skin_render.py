@@ -1580,7 +1580,7 @@ class Polygon():
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
 if __name__ == "__main__":
-    user: str = "Metriximor"
+    user: str = "Herobrine"
     vr: int = 50
     hr: int = 35
     hrh: int = 0
