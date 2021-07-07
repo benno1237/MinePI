@@ -105,5 +105,3 @@ From Github:
 ```sh
 pip install git+https://github.com/benno1237/MinePI.git#egg=MinePI
 ```
-
-

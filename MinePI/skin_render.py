@@ -3,10 +3,9 @@ import aiohttp
 import json
 import base64
 import io
-from PIL import Image, ImageDraw
-import asyncio
+from PIL import Image, ImageDraw, ImageOps
 import time
-import random
+import asyncio
 
 cos_a = None
 sin_a = None
@@ -47,7 +46,7 @@ def append_dict(dic, key1, key2, key3, value):
     return dic
 
 class Render:
-    def __init__(self, user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, head_only, display_hair, display_layers, aa):
+    def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int, head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
             self.start = time.time()
             self.is_new_skin = True
             self.vr = vr
@@ -67,7 +66,7 @@ class Render:
     async def get_skin_mojang(self):
         if len(self.user) <= 16:
             async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.mojang.com/users/profiles/minecraft/" + self.user) as response:
+                async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{self.user}") as response:
                     resp = await response.text()
             if response.status != 200:
                 raise ValueError("Username is invalid")
@@ -83,7 +82,7 @@ class Render:
                     raise ValueError("UUID is invalid")
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get("https://sessionserver.mojang.com/session/minecraft/profile/" + uuid) as resp:
+                    async with session.get(f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}") as resp:
                         resp_sessionserver = await resp.text()
             if resp_sessionserver == "":
                 raise ValueError("UUID is invalid")
@@ -105,6 +104,9 @@ class Render:
             skin = await self.get_skin_mojang()
         hd_ratio = int(skin.size[0] / 64)
 
+        if skin.height == 32:
+            skin = self.fix_old_skins(skin)
+
         self.calculate_angles()
         self.determine_faces()
         self.generate_polygons(hd_ratio, skin)
@@ -113,6 +115,43 @@ class Render:
         image = self.display_image()
 
         return image
+
+    def fix_old_skins(self, skin: Image):
+        #resize the image to 64/64px
+        new_skin = Image.new("RGBA", (skin.width, 64), (0, 0, 0, 0))
+        new_skin.paste(skin, (0, 0))
+
+        #copy the leg 
+        leg_top = ImageOps.mirror(skin.crop((4, 16, 8, 20)))
+        leg_bottom = ImageOps.mirror(skin.crop((8, 16, 12, 20)))
+        leg_left = ImageOps.mirror(skin.crop((8, 20, 12, 32)))
+        leg_back = ImageOps.mirror(skin.crop((12, 20, 16, 32)))
+        leg_front = ImageOps.mirror(skin.crop((4, 20, 8, 32)))
+        leg_right = ImageOps.mirror(skin.crop((0, 20, 4, 32)))
+
+        new_skin.paste(leg_top, (20, 48))
+        new_skin.paste(leg_bottom, (24, 48))
+        new_skin.paste(leg_left, (16, 52))
+        new_skin.paste(leg_front, (20, 52))
+        new_skin.paste(leg_right, (24, 52))
+        new_skin.paste(leg_back, (28, 52))
+
+        #copy the arm
+        arm_top = ImageOps.mirror(skin.crop((44, 16, 48, 20)))
+        arm_bottom = ImageOps.mirror(skin.crop((48, 16, 52, 20)))
+        arm_left = ImageOps.mirror(skin.crop((48, 20, 52, 32)))
+        arm_back = ImageOps.mirror(skin.crop((52, 20, 56, 32)))
+        arm_front = ImageOps.mirror(skin.crop((44, 20, 48, 32)))
+        arm_right = ImageOps.mirror(skin.crop((40, 20, 44, 32)))
+
+        new_skin.paste(arm_top, (36, 48))
+        new_skin.paste(arm_bottom, (40, 48))
+        new_skin.paste(arm_left, (32, 52))
+        new_skin.paste(arm_front, (36, 52))
+        new_skin.paste(arm_right, (40, 52))
+        new_skin.paste(arm_back, (44, 52))
+
+        return new_skin
 
     def calculate_angles(self):
         global cos_a, sin_a, cos_b, sin_b
@@ -1541,15 +1580,22 @@ class Polygon():
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    pos_list = [
-        (-25, -25, 20, 5, -2, -20, 85),
-        (0, 0, 10, 5, -2, 5, 85),
-        (15, 10, 10, 25, 85, 10, 80),
-        (45, 45, 0, 10, 0, 0, 0)
-    ]
+    user: str = "Herobrine"
+    vr: int = 50
+    hr: int = 35
+    hrh: int = 0
+    vrll: int = 0
+    vrrl: int = 0
+    vrla: int = 0
+    vrra: int = 0
+    ratio: int = 12
+    head_only: bool = False
+    display_hair: bool = True
+    display_second_layer: bool = True
+    aa: bool = False
+    skin_image: Image = None
 
-    pos = pos_list[random.randint(0, len(pos_list) - 1)]
-    user = "_das_mario_"
-    render = loop.run_until_complete(render_3d_skin(user, pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], pos[6], ratio=50, display_hair=True, aa=False))
-    render.show()
+    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, head_only, display_hair, display_second_layer, aa)
+
+    im = asyncio.run(render.get_render(skin_image))
+    im.show()
