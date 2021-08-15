@@ -2,8 +2,6 @@ MinePI
 ======
 
 .. image:: https://readthedocs.org/projects/minepi/badge/?version=latest
-:target: https://minepi.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
 
 $project is an all in one Minecraft skin render library written in Python.
 
