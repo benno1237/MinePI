@@ -14,8 +14,7 @@ setup(
     install_requires = [
         "aiohttp",
         "Pillow",
-        "sphinx-prompt",
-        
+        "sphinx-prompt"
     ],
       classifiers=[
     'Development Status :: 3 - Alpha',     
