@@ -6,8 +6,6 @@ import io
 from PIL import Image, ImageDraw, ImageOps
 import asyncio
 
-__all__ = ["render_3d_skin", "render_3d_head", "get_skin", "to_uuid", "to_name"]
-
 async def render_3d_skin(
     user: str = "",
     vr: int = -25, 
@@ -21,7 +19,7 @@ async def render_3d_skin(
     display_hair: bool = True,
     display_second_layer: bool = True,
     aa: bool = False,
-    skin_image: Image = None
+    skin_image: Image.Image = None
     ):
     """Render a full body skin
     
@@ -51,12 +49,12 @@ async def render_3d_skin(
         Whether or not the second skin layer should be displayed
     aa: bool
         Antializing: smoothens the corners a bit
-    skin_image: Image
+    skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
     
     Returns
     -------
-    Image
+    PIL.Image.Image
         The rendered skin
 
     Raises
@@ -76,7 +74,7 @@ async def render_3d_head(
     ratio: int = 12,
     display_hair: bool = True, 
     aa: bool = False,
-    skin_image: Image = None
+    skin_image: Image.Image = None
     ):
     """Render a player's head
     
@@ -96,12 +94,12 @@ async def render_3d_head(
         Whether or not the second skin layer should be displayed
     aa: bool
         Antializing: smoothens the corners a bit
-    skin_image: Image
+    skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
     
     Returns
     -------
-    Image
+    PIL.Image.Image
         The rendered head
 
     Raises
@@ -125,7 +123,7 @@ async def get_skin(user: str):
         
     Returns
     -------
-    Image
+    PIL.Image.Image
         Raw skin image
         
     Raises
@@ -1783,12 +1781,4 @@ if __name__ == "__main__":
     aa: bool = False
     skin_image: Image = None
 
-    im = asyncio.run(render_3d_head(user))
-    print(im.size)
-    im.show()
-
     im = asyncio.run(render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa, skin_image))
-    print(im.size)
-
-    im = asyncio.run(render_3d_head(user))
-    print(im.size)
