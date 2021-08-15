@@ -13,7 +13,9 @@ setup(
     keywords = ["Minecraft", "Skin", "Render", "Head", "UUID"],
     install_requires = [
         "aiohttp",
-        "Pillow"
+        "Pillow",
+        "sphinx-prompt",
+        
     ],
       classifiers=[
     'Development Status :: 3 - Alpha',     
