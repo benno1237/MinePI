@@ -3,13 +3,13 @@ from distutils.core import setup
 setup(
     name = "MinePI",
     packages = ["MinePI"],
-    version = "0.3.0a1",
+    version = "0.4.0",
     license = "MIT",
     description = "Minecraft utility library.",
     author = "benno1237, honigkuchen",
     author_email = "benno.kollreider@gmail.com",
     url = "https://github.com/benno1237/MinePI",
-    download_url = "https://github.com/benno1237/MinePI/archive/refs/tags/0.1.tar.gz",
+    download_url = "https://github.com/benno1237/MinePI/archive/refs/tags/0.3.1.tar.gz",
     keywords = ["Minecraft", "Skin", "Render", "Head", "UUID"],
     install_requires = [
         "aiohttp",

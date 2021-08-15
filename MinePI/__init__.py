@@ -1,4 +1,1 @@
-from .functions import MinePI
-
-class MinePI(MinePI):
-    pass
+from .skin_render import *

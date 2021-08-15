@@ -4,18 +4,203 @@ import json
 import base64
 import io
 from PIL import Image, ImageDraw, ImageOps
-import time
 import asyncio
 
-cos_a = None
-sin_a = None
-cos_b = None
-sin_b = None
+__all__ = ["render_3d_skin", "render_3d_head", "get_skin", "to_uuid", "to_name"]
 
-min_x = 0
-max_x = 0
-min_y = 0
-max_y = 0
+async def render_3d_skin(
+    user: str = "",
+    vr: int = -25, 
+    hr: int = 35, 
+    hrh: int = 0, 
+    vrll: int = 0, 
+    vrrl: int = 0, 
+    vrla: int = 0, 
+    vrra: int = 0, 
+    ratio: int = 12,
+    display_hair: bool = True,
+    display_second_layer: bool = True,
+    aa: bool = False,
+    skin_image: Image = None
+    ):
+    """Render a full body skin
+    
+    Parameters
+    ----------
+    user: str
+        Username or UUID of the player
+    vr: int
+        Vertical rotation of the output image
+    hr: int
+        Horizontal rotation of the output image
+    hrh: int
+        Horizontal head rotation
+    vrll: int
+        Vertical rotation of the left leg
+    vrrl: int
+        Vertical rotation of the right leg
+    vrla: int
+        Vertical rotation of the left arm
+    vrra: int
+        Vertical rotation of the right arm
+    ratio: int
+        Resolution of the returned image
+    display_hair: bool
+        Whether or not the second head layer should be displayed
+    display_second_layer: bool
+        Whether or not the second skin layer should be displayed
+    aa: bool
+        Antializing: smoothens the corners a bit
+    skin_image: Image
+        minecraft skin image to prevent api calls
+    
+    Returns
+    -------
+    Image
+        The rendered skin
+
+    Raises
+    ------
+    ValueError
+        Given username and/or uuid is invalid
+    """
+    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, False, display_hair, display_second_layer, aa)
+    im = await render.get_render(skin_image)
+    del render
+    return im
+
+async def render_3d_head(
+    user: str = "",
+    vr: int = -25, 
+    hr: int = 35,  
+    ratio: int = 12,
+    display_hair: bool = True, 
+    aa: bool = False,
+    skin_image: Image = None
+    ):
+    """Render a player's head
+    
+    Parameters
+    ----------
+    user: str
+        Username or UUID of the player
+    vr: int
+        Vertical rotation of the output image
+    hr: int
+        Horizontal rotation of the output image
+    ratio: int
+        Resolution of the returned image
+    display_hair: bool
+        Whether or not the second head layer should be displayed
+    display_second_layer: bool
+        Whether or not the second skin layer should be displayed
+    aa: bool
+        Antializing: smoothens the corners a bit
+    skin_image: Image
+        minecraft skin image to prevent api calls
+    
+    Returns
+    -------
+    Image
+        The rendered head
+
+    Raises
+    ------
+    ValueError
+        Given username and/or uuid is invalid
+    """
+    render = Render(user, vr, hr, 0, 0, 0, 0, 0, ratio, display_hair, False, aa, skin_image)
+    im = await render.get_render(skin_image)
+    del render
+    return im
+
+async def get_skin(user: str):
+    """Get a player's raw skin image
+    can be used in both :py:meth:`render_3d_head` and :py:meth:`render_3d_skin`
+    
+    Parameters
+    ----------
+    user: str
+        Username or UUID
+        
+    Returns
+    -------
+    Image
+        Raw skin image
+        
+    Raises
+    ------
+    ValueError
+        Username or UUID is invalid
+    """
+    render = Render(user, 0, 0, 0, 0, 0, 0, 0, 100, False, False, False, False)
+    im = await render.get_skin_mojang()
+    del render
+    return im
+
+async def to_uuid(name: str):
+    """Converts a username to a UUID by querying the mojang api
+    
+    Parameters
+    ----------
+    name: str
+        Username you would like to convert
+    
+    Returns
+    -------
+    UUID: str
+        The UUID of the player
+    
+    Raises
+    ------
+    ValueError
+        Entered name is invalid
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://api.mojang.com/users/profiles/minecraft/{}".format(name)) as resp:
+            uuid_dict = json.loads(await resp.text())
+            try:
+                uuid = uuid_dict["id"]
+                return uuid
+            except KeyError:
+                raise ValueError("Name {} is invalid".format(name))
+
+async def to_name(uuid: str, timestamp: float = None):
+    """Converts a UUID to a username by querying the mojang api
+    
+    Parameters
+    ----------
+    uuid: int
+        uuid you would like to convert
+    timestamp: float
+        By passing this you can get old usernames
+    
+    Returns
+    -------
+    username: str
+        The username of the player
+    
+    Raises
+    ------
+    ValueError
+        Entered uuid is invalid
+    """
+    async with aiohttp.ClientSession() as session:
+        async with session.get("https://api.mojang.com/user/profiles/{}/names".format(uuid)) as resp:
+            name_dict = json.loads(await resp.text())
+            if resp.status == 200:
+                if timestamp == None:
+                    max_entry = len(name_dict) - 1
+                    name = name_dict[max_entry]["name"]
+                    return name
+                else:
+                    for i in range(len(name_dict) - 1, 0, -1):
+                        if timestamp > name_dict[i]["changedToAt"]:
+                            return name_dict[i]["name"]
+                    else:
+                        return name_dict[0]["name"]
+            elif resp.status == 400:
+                raise ValueError(name_dict["errorMessage"])
 
 def is_not_existing(dic, key1 = None, key2 = None, key3 = None):
     try:
@@ -47,7 +232,6 @@ def append_dict(dic, key1, key2, key3, value):
 
 class Render:
     def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int, head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
-            self.start = time.time()
             self.is_new_skin = True
             self.vr = vr
             self.hr = hr
@@ -62,6 +246,17 @@ class Render:
             self.layers = display_layers
             self.user = user
             self.aa = aa
+            self.rendered_image = None
+
+            self.cos_a = None
+            self.sin_a = None
+            self.cos_b = None
+            self.sin_b = None
+
+            self.min_x = 0
+            self.max_x = 0
+            self.min_y = 0
+            self.max_y = 0
 
     async def get_skin_mojang(self):
         if len(self.user) <= 16:
@@ -112,9 +307,8 @@ class Render:
         self.generate_polygons(hd_ratio, skin)
         self.member_rotation(hd_ratio)
         self.create_project_plan()
-        image = self.display_image()
 
-        return image
+        return self.display_image()
 
     def fix_old_skins(self, skin: Image):
         #resize the image to 64/64px
@@ -154,13 +348,12 @@ class Render:
         return new_skin
 
     def calculate_angles(self):
-        global cos_a, sin_a, cos_b, sin_b
         self.body_angles = {}
         alpha = radians(self.vr)
         beta = radians(self.hr)
 
-        cos_a, sin_a = cos(alpha), sin(alpha)
-        cos_b, sin_b = cos(beta), sin(beta)
+        self.cos_a, self.sin_a = cos(alpha), sin(alpha)
+        self.cos_b, self.sin_b = cos(beta), sin(beta)
 
         self.body_angles["torso"] = (cos(0), sin(0), cos(0), sin(0))
         self.body_angles["torso_layer"] = (cos(0), sin(0), cos(0), sin(0))
@@ -234,7 +427,7 @@ class Render:
 
     def set_cube_points(self):
         self.cube_points = []
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 0,
             "y": 0,
             "z": 0
@@ -242,7 +435,7 @@ class Render:
             ["back", "right", "top"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 0,
             "y": 0,
             "z": 1
@@ -250,7 +443,7 @@ class Render:
             ["front", "right", "top"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 0,
             "y": 1,
             "z": 0
@@ -258,7 +451,7 @@ class Render:
             ["back", "right", "bottom"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 0,
             "y": 1,
             "z": 1
@@ -266,7 +459,7 @@ class Render:
             ["front", "right", "bottom"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 1,
             "y": 0,
             "z": 0
@@ -274,7 +467,7 @@ class Render:
             ["back", "left", "top"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 1,
             "y": 0,
             "z": 1
@@ -282,7 +475,7 @@ class Render:
             ["front", "left", "top"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 1,
             "y": 1,
             "z": 0
@@ -290,7 +483,7 @@ class Render:
             ["back", "left", "bottom"]
             ))
 
-        self.cube_points.append((Point({
+        self.cube_points.append((Point(self, {
             "x": 1,
             "y": 1,
             "z": 1
@@ -318,18 +511,18 @@ class Render:
         volume_points = {}
         for i in range(0, 9 * hd_ratio):
             for j in range(0, 9 * hd_ratio):
-                volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point({"x": i, "y": j, "z": -2 * hd_ratio}))
-                volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point({"x": i, "y": j, "z": 6 * hd_ratio}))
+                volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point(self, {"x": i, "y": j, "z": -2 * hd_ratio}))
+                volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point(self, {"x": i, "y": j, "z": 6 * hd_ratio}))
 
         for j in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                volume_points = append_dict(volume_points, 0, j, k, Point({"x": 0, "y": j, "z": k}))
-                volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point({"x": 8 * hd_ratio, "y": j, "z": k}))
+                volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j, "z": k}))
+                volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j, "z": k}))
 
         for i in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                volume_points = append_dict(volume_points, i, 0, k, Point({"x": i, "y": 0, "z": k}))
-                volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point({"x": i, "y": 8 * hd_ratio, "z": k}))
+                volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 0, "z": k}))
+                volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
 
         if "back" in self.visible_faces["head"]["front"]:
             for i in range(0, 8 * hd_ratio):
@@ -408,18 +601,18 @@ class Render:
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 9 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point({"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": -2.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point({"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": 6.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": -2.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": 6.25 * hd_ratio}))
 
             for j in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": -0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point({"x": 8.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": -0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point({"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": 8.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": -0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": 8.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
             for i in range(0, 8 * hd_ratio):
                 for j in range(0, 8 * hd_ratio):
@@ -483,18 +676,18 @@ class Render:
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point({"x": i, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": 0, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point({"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["torso"]["front"]:
                 for i in range(0, 8 * hd_ratio):
@@ -573,18 +766,18 @@ class Render:
                 volume_points = {}
                 for i in range(0, 9 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point({"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point({"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point({"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 9 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point({"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 8 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
@@ -647,18 +840,18 @@ class Render:
             volume_points = {}
             for i in range(0, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point({"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": -4 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -4 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
 
             for i in range(0, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i - 4 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i - 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i - 4 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i - 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["r_arm"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -737,18 +930,18 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point({"x": -4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
@@ -811,18 +1004,18 @@ class Render:
             volume_points = {}
             for i in range(0, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point({"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 12 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 12 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
 
             for i in range(0, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i + 8 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i + 8 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i + 8 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i + 8 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["l_arm"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -901,18 +1094,18 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point({"x": 7.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 12.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 7.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 12.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
@@ -975,18 +1168,18 @@ class Render:
             volume_points = {}
             for i in range(0, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point({"x": i, "y": j + 20 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": 0, "y": j + 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
 
             for i in range(0, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i, "y": 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i, "y": 32 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i, "y": 32 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["r_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1065,18 +1258,18 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point({"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point({"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point({"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
@@ -1139,18 +1332,18 @@ class Render:
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point({"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point({"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 8 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point({"x": i + 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": i + 4 * hd_ratio, "y": 32 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i + 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i + 4 * hd_ratio, "y": 32 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["l_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1229,18 +1422,18 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point({"x": 3.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point({"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 3.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point({"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
@@ -1350,10 +1543,8 @@ class Render:
                         poly.project()
 
     def display_image(self):
-        global min_x, max_x, min_y, max_y
-
-        width = max_x - min_x
-        height = max_y - min_y
+        width = self.max_x - self.min_x
+        height = self.max_y - self.min_y
         ratio = self.ratio
         if ratio < 2:
             ratio = 2
@@ -1374,7 +1565,7 @@ class Render:
             for piece, faces in pieces.items():
                 for face in faces:
                     for poly in self.polygons[piece][face]:
-                        poly.add_png_polygon(draw, min_x, min_y, ratio)
+                        poly.add_png_polygon(draw, self.min_x, self.min_y, ratio)
 
         if self.aa:
             image = image.resize((int(real_width), int(real_height)), resample=Image.ANTIALIAS)
@@ -1475,11 +1666,11 @@ class Render:
         return display_order
 
 class Point():
-    def __init__(self, origin_coords, dest_coords = {}, is_projected = False, is_pre_projected = False):
+    def __init__(self, super_cls, origin_coords, dest_coords = {}, is_projected = False, is_pre_projected = False):
         self.dest_coords = dest_coords
         self.is_projected = is_projected
         self.is_pre_projected = is_pre_projected
-        global min_x, max_x, min_y, max_y
+        self.super = super_cls
 
         if (isinstance(origin_coords, dict)) and (len(origin_coords.keys()) == 3):
             x = origin_coords["x"] if is_not_existing(origin_coords, "x") == False else 0
@@ -1501,21 +1692,18 @@ class Point():
             self.is_pre_projected = True
 
     def project(self):
-        global min_x, max_x, min_y, max_y
-        global cos_a, sin_a, cos_b, sin_b
-
         x = self.origin_coords["x"]
         y = self.origin_coords["y"]
         z = self.origin_coords["z"]
         self.dest_coords = {}
-        self.dest_coords["x"] = x * cos_b + z * sin_b
-        self.dest_coords["y"] = x * sin_a * sin_b + y * cos_a - z * sin_a * cos_b
-        self.dest_coords["z"] = -x * cos_a * sin_b + y * sin_a + z * cos_a * cos_b
+        self.dest_coords["x"] = x * self.super.cos_b + z * self.super.sin_b
+        self.dest_coords["y"] = x * self.super.sin_a * self.super.sin_b + y * self.super.cos_a - z * self.super.sin_a * self.super.cos_b
+        self.dest_coords["z"] = -x * self.super.cos_a * self.super.sin_b + y * self.super.sin_a + z * self.super.cos_a * self.super.cos_b
         self.is_projected = True
-        min_x = min(min_x, self.dest_coords["x"])
-        max_x = max(max_x, self.dest_coords["x"])
-        min_y = min(min_y, self.dest_coords["y"])
-        max_y = max(max_y, self.dest_coords["y"])
+        self.super.min_x = min(self.super.min_x, self.dest_coords["x"])
+        self.super.max_x = max(self.super.max_x, self.dest_coords["x"])
+        self.super.min_y = min(self.super.min_y, self.dest_coords["y"])
+        self.super.max_y = max(self.super.max_y, self.dest_coords["y"])
 
     def get_depth(self):
         if not self.is_projected:
@@ -1595,7 +1783,12 @@ if __name__ == "__main__":
     aa: bool = False
     skin_image: Image = None
 
-    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, head_only, display_hair, display_second_layer, aa)
-
-    im = asyncio.run(render.get_render(skin_image))
+    im = asyncio.run(render_3d_head(user))
+    print(im.size)
     im.show()
+
+    im = asyncio.run(render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa, skin_image))
+    print(im.size)
+
+    im = asyncio.run(render_3d_head(user))
+    print(im.size)
