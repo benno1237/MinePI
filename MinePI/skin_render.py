@@ -62,7 +62,7 @@ async def render_3d_skin(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, False, display_hair, display_second_layer, aa)
+    render = Render(user=user, vr=vr, hr=hr, hrh=hrh, vrll=vrll, vrrl=vrrl, vrla=vrla, vrra=vrra, ratio=ratio, head_only=False, display_hair=display_hair, display_layers=display_second_layer, aa=aa)
     im = await render.get_render(skin_image)
     del render
     return im
@@ -107,7 +107,7 @@ async def render_3d_head(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user, vr, hr, 0, 0, 0, 0, 0, ratio, display_hair, False, aa, skin_image)
+    render = Render(user=user, vr=vr, hr=hr, hrh=0, vrll=0, vrrl=0, vrla=0, vrra=0, ratio=ratio, head_only=True, display_hair=display_hair, display_layers=False, aa=aa)
     im = await render.get_render(skin_image)
     del render
     return im
@@ -1776,9 +1776,13 @@ if __name__ == "__main__":
     vrra: int = 0
     ratio: int = 12
     head_only: bool = False
-    display_hair: bool = True
+    display_hair: bool = False
     display_second_layer: bool = True
     aa: bool = False
     skin_image: Image = None
 
-    im = asyncio.run(render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa, skin_image))
+    if not head_only:
+        im = asyncio.run(render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa, skin_image))
+    else:
+        im = asyncio.run(render_3d_head(user, vr, hr, ratio, display_hair, aa, skin_image))
+    im.show()
