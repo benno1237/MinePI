@@ -246,6 +246,8 @@ class Render:
             self.aa = aa
             self.rendered_image = None
 
+            self.loop = asyncio.get_event_loop()
+
             self.cos_a = None
             self.sin_a = None
             self.cos_b = None
@@ -297,16 +299,26 @@ class Render:
             skin = await self.get_skin_mojang()
         hd_ratio = int(skin.size[0] / 64)
 
-        if skin.height == 32:
-            skin = self.fix_old_skins(skin)
+        def render_skin(skin):
+            if skin.height == 32:
+                skin = self.fix_old_skins(skin)
 
-        self.calculate_angles()
-        self.determine_faces()
-        self.generate_polygons(hd_ratio, skin)
-        self.member_rotation(hd_ratio)
-        self.create_project_plan()
+            self.calculate_angles()
+            self.determine_faces()
+            self.generate_polygons(hd_ratio, skin)
+            self.member_rotation(hd_ratio)
+            self.create_project_plan()
 
-        return self.display_image()
+            im = self.display_image()
+            return im
+
+        im = await self.loop.run_in_executor(
+            None,
+            render_skin,
+            skin
+        )
+
+        return im
 
     def fix_old_skins(self, skin: Image):
         #resize the image to 64/64px
