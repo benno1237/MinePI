@@ -300,6 +300,9 @@ class Render:
         if skin.height == 32:
             skin = self.fix_old_skins(skin)
 
+        if self.is_slim_skin(skin):
+            print(True)
+
         self.calculate_angles()
         self.determine_faces()
         self.generate_polygons(hd_ratio, skin)
@@ -307,6 +310,10 @@ class Render:
         self.create_project_plan()
 
         return self.display_image()
+
+    def is_slim_skin(self, skin: Image):
+        c = skin.getpixel((55, 20))
+        return not c[3]
 
     def fix_old_skins(self, skin: Image):
         #resize the image to 64/64px
@@ -1766,7 +1773,7 @@ class Polygon():
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
 if __name__ == "__main__":
-    user: str = "Herobrine"
+    user: str = "HellFire6969"
     vr: int = 50
     hr: int = 35
     hrh: int = 0
