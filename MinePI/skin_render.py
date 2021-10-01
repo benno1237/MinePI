@@ -665,7 +665,7 @@ class Render:
                                                              "y": 8.25 * hd_ratio,
                                                              "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
-            if "back" in self.visible_faces["helmet"]["front"]:
+            if "back" in self.visible_faces["head"]["front"]:
                 for i in range(0, 8 * hd_ratio):
                     for j in range(0, 8 * hd_ratio):
                         color = skin.getpixel((64 * hd_ratio - 1 - i, 8 * hd_ratio + j))
@@ -677,7 +677,7 @@ class Render:
                                 volume_points[i][j + 1][-2 * hd_ratio]],
                                 color))
 
-            if "front" in self.visible_faces["helmet"]["front"]:
+            if "front" in self.visible_faces["head"]["front"]:
                 for i in range(0, 8 * hd_ratio):
                     for j in range(0, 8 * hd_ratio):
                         color = skin.getpixel((40 * hd_ratio + i, 8 * hd_ratio + j))
@@ -689,7 +689,7 @@ class Render:
                                 volume_points[i][j + 1][6 * hd_ratio]],
                                 color))
 
-            if "right" in self.visible_faces["helmet"]["front"]:
+            if "right" in self.visible_faces["head"]["front"]:
                 for j in range(0, 8 * hd_ratio):
                     for k in range(-2 * hd_ratio, 6 * hd_ratio):
                         color = skin.getpixel((34 * hd_ratio + k, 8 * hd_ratio + j))
@@ -701,7 +701,7 @@ class Render:
                                 volume_points[0][j + 1][k]],
                                 color))
 
-            if "left" in self.visible_faces["helmet"]["front"]:
+            if "left" in self.visible_faces["head"]["front"]:
                 for j in range(0, 8 * hd_ratio):
                     for k in range(-2 * hd_ratio, 6 * hd_ratio):
                         color = skin.getpixel((54 * hd_ratio - k - 1, 8 * hd_ratio + j))
@@ -713,7 +713,7 @@ class Render:
                                 volume_points[8 * hd_ratio][j + 1][k]],
                                 color))
 
-            if "top" in self.visible_faces["helmet"]["front"]:
+            if "top" in self.visible_faces["head"]["front"]:
                 for i in range(0, 8 * hd_ratio):
                     for k in range(-2 * hd_ratio, 6 * hd_ratio):
                         color = skin.getpixel((40 * hd_ratio + i, 2 * hd_ratio + k))
@@ -725,7 +725,7 @@ class Render:
                                 volume_points[i][0][k + 1]],
                                 color))
 
-            if "bottom" in self.visible_faces["helmet"]["front"]:
+            if "bottom" in self.visible_faces["head"]["front"]:
                 for i in range(0, 8 * hd_ratio):
                     for k in range(-2 * hd_ratio, 6 * hd_ratio):
                         color = skin.getpixel((48 * hd_ratio + 1, 2 * hd_ratio + k))
