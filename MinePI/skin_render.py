@@ -6,23 +6,24 @@ import io
 from PIL import Image, ImageDraw, ImageOps
 import asyncio
 
+
 async def render_3d_skin(
-    user: str = "",
-    vr: int = -25, 
-    hr: int = 35, 
-    hrh: int = 0, 
-    vrll: int = 0, 
-    vrrl: int = 0, 
-    vrla: int = 0, 
-    vrra: int = 0, 
-    ratio: int = 12,
-    display_hair: bool = True,
-    display_second_layer: bool = True,
-    aa: bool = False,
-    skin_image: Image.Image = None
-    ):
+        user: str = "",
+        vr: int = -25,
+        hr: int = 35,
+        hrh: int = 0,
+        vrll: int = 0,
+        vrrl: int = 0,
+        vrla: int = 0,
+        vrra: int = 0,
+        ratio: int = 12,
+        display_hair: bool = True,
+        display_second_layer: bool = True,
+        aa: bool = False,
+        skin_image: Image.Image = None
+):
     """Render a full body skin
-    
+
     Parameters
     ----------
     user: str
@@ -51,7 +52,7 @@ async def render_3d_skin(
         Antializing: smoothens the corners a bit
     skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
-    
+
     Returns
     -------
     PIL.Image.Image
@@ -62,22 +63,24 @@ async def render_3d_skin(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, False, display_hair, display_second_layer, aa)
+    render = Render(user=user, vr=vr, hr=hr, hrh=hrh, vrll=vrll, vrrl=vrrl, vrla=vrla, vrra=vrra, ratio=ratio,
+                    head_only=False, display_hair=display_hair, display_layers=display_second_layer, aa=aa)
     im = await render.get_render(skin_image)
     del render
     return im
 
+
 async def render_3d_head(
-    user: str = "",
-    vr: int = -25, 
-    hr: int = 35,  
-    ratio: int = 12,
-    display_hair: bool = True, 
-    aa: bool = False,
-    skin_image: Image.Image = None
-    ):
+        user: str = "",
+        vr: int = -25,
+        hr: int = 35,
+        ratio: int = 12,
+        display_hair: bool = True,
+        aa: bool = False,
+        skin_image: Image.Image = None
+):
     """Render a player's head
-    
+
     Parameters
     ----------
     user: str
@@ -96,7 +99,7 @@ async def render_3d_head(
         Antializing: smoothens the corners a bit
     skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
-    
+
     Returns
     -------
     PIL.Image.Image
@@ -107,25 +110,27 @@ async def render_3d_head(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user, vr, hr, 0, 0, 0, 0, 0, ratio, display_hair, False, aa, skin_image)
+    render = Render(user=user, vr=vr, hr=hr, hrh=0, vrll=0, vrrl=0, vrla=0, vrra=0, ratio=ratio, head_only=True,
+                    display_hair=display_hair, display_layers=False, aa=aa)
     im = await render.get_render(skin_image)
     del render
     return im
 
+
 async def get_skin(user: str):
     """Get a player's raw skin image
     can be used in both :py:meth:`render_3d_head` and :py:meth:`render_3d_skin`
-    
+
     Parameters
     ----------
     user: str
         Username or UUID
-        
+
     Returns
     -------
     PIL.Image.Image
         Raw skin image
-        
+
     Raises
     ------
     ValueError
@@ -136,19 +141,20 @@ async def get_skin(user: str):
     del render
     return im
 
+
 async def to_uuid(name: str):
     """Converts a username to a UUID by querying the mojang api
-    
+
     Parameters
     ----------
     name: str
         Username you would like to convert
-    
+
     Returns
     -------
     UUID: str
         The UUID of the player
-    
+
     Raises
     ------
     ValueError
@@ -163,21 +169,22 @@ async def to_uuid(name: str):
             except KeyError:
                 raise ValueError("Name {} is invalid".format(name))
 
+
 async def to_name(uuid: str, timestamp: float = None):
     """Converts a UUID to a username by querying the mojang api
-    
+
     Parameters
     ----------
     uuid: int
         uuid you would like to convert
     timestamp: float
         By passing this you can get old usernames
-    
+
     Returns
     -------
     username: str
         The username of the player
-    
+
     Raises
     ------
     ValueError
@@ -200,7 +207,8 @@ async def to_name(uuid: str, timestamp: float = None):
             elif resp.status == 400:
                 raise ValueError(name_dict["errorMessage"])
 
-def is_not_existing(dic, key1 = None, key2 = None, key3 = None):
+
+def is_not_existing(dic, key1=None, key2=None, key3=None):
     try:
         if key1 == None:
             resp = dic
@@ -213,6 +221,7 @@ def is_not_existing(dic, key1 = None, key2 = None, key3 = None):
         return False
     except KeyError:
         return True
+
 
 def append_dict(dic, key1, key2, key3, value):
     if is_not_existing(dic, key1, key2, key3):
@@ -228,33 +237,37 @@ def append_dict(dic, key1, key2, key3, value):
                 dic[key1][key2][key3] = value
     return dic
 
+
 class Render:
-    def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int, head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
-            self.is_new_skin = True
-            self.vr = vr
-            self.hr = hr
-            self.hrh = hrh
-            self.vrll = vrll
-            self.vrrl = vrrl
-            self.vrla = vrla
-            self.vrra = vrra
-            self.head_only = head_only
-            self.ratio = ratio
-            self.display_hair = display_hair
-            self.layers = display_layers
-            self.user = user
-            self.aa = aa
-            self.rendered_image = None
+    def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int,
+                 head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
+        self.is_new_skin = True
+        self.vr = vr
+        self.hr = hr
+        self.hrh = hrh
+        self.vrll = vrll
+        self.vrrl = vrrl
+        self.vrla = vrla
+        self.vrra = vrra
+        self.head_only = head_only
+        self.ratio = ratio
+        self.display_hair = display_hair
+        self.layers = display_layers
+        self.user = user
+        self.aa = aa
+        self.rendered_image = None
 
-            self.cos_a = None
-            self.sin_a = None
-            self.cos_b = None
-            self.sin_b = None
+        self.loop = asyncio.get_event_loop()
 
-            self.min_x = 0
-            self.max_x = 0
-            self.min_y = 0
-            self.max_y = 0
+        self.cos_a = None
+        self.sin_a = None
+        self.cos_b = None
+        self.sin_b = None
+
+        self.min_x = 0
+        self.max_x = 0
+        self.min_y = 0
+        self.max_y = 0
 
     async def get_skin_mojang(self):
         if len(self.user) <= 16:
@@ -275,7 +288,8 @@ class Render:
                     raise ValueError("UUID is invalid")
             else:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}") as resp:
+                    async with session.get(
+                            f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}") as resp:
                         resp_sessionserver = await resp.text()
             if resp_sessionserver == "":
                 raise ValueError("UUID is invalid")
@@ -297,30 +311,39 @@ class Render:
             skin = await self.get_skin_mojang()
         hd_ratio = int(skin.size[0] / 64)
 
-        if skin.height == 32:
-            skin = self.fix_old_skins(skin)
+        def render_skin(skin):
+            if skin.height == 32:
+                skin = self.fix_old_skins(skin)
 
-        if self.is_slim_skin(skin):
-            print(True)
+            self.slim = self.is_slim_skin(skin)
 
-        self.calculate_angles()
-        self.determine_faces()
-        self.generate_polygons(hd_ratio, skin)
-        self.member_rotation(hd_ratio)
-        self.create_project_plan()
+            self.calculate_angles()
+            self.determine_faces()
+            self.generate_polygons(hd_ratio, skin)
+            self.member_rotation(hd_ratio)
+            self.create_project_plan()
 
-        return self.display_image()
+            im = self.display_image()
+            return im
 
-    def is_slim_skin(self, skin: Image):
+        im = await self.loop.run_in_executor(
+            None,
+            render_skin,
+            skin
+        )
+
+        return im
+
+    def is_slim_skin(self, skin: Image) -> bool:
         c = skin.getpixel((55, 20))
         return not c[3]
 
     def fix_old_skins(self, skin: Image):
-        #resize the image to 64/64px
+        # resize the image to 64/64px
         new_skin = Image.new("RGBA", (skin.width, 64), (0, 0, 0, 0))
         new_skin.paste(skin, (0, 0))
 
-        #copy the leg 
+        # copy the leg
         leg_top = ImageOps.mirror(skin.crop((4, 16, 8, 20)))
         leg_bottom = ImageOps.mirror(skin.crop((8, 16, 12, 20)))
         leg_left = ImageOps.mirror(skin.crop((8, 20, 12, 32)))
@@ -335,7 +358,7 @@ class Render:
         new_skin.paste(leg_right, (24, 52))
         new_skin.paste(leg_back, (28, 52))
 
-        #copy the arm
+        # copy the arm
         arm_top = ImageOps.mirror(skin.crop((44, 16, 48, 20)))
         arm_bottom = ImageOps.mirror(skin.crop((48, 16, 52, 20)))
         arm_left = ImageOps.mirror(skin.crop((48, 20, 52, 32)))
@@ -390,17 +413,17 @@ class Render:
 
     def determine_faces(self):
         self.visible_faces = {
-            "head":         {"front": {}, "back": {}},
-            "torso":        {"front": {}, "back": {}},
-            "torso_layer":  {"front": {}, "back": {}},
-            "r_arm":        {"front": {}, "back": {}},
-            "r_arm_layer":  {"front": {}, "back": {}},
-            "l_arm":        {"front": {}, "back": {}},
-            "l_arm_layer":  {"front": {}, "back": {}},
-            "r_leg":        {"front": {}, "back": {}},
-            "r_leg_layer":  {"front": {}, "back": {}},
-            "l_leg":        {"front": {}, "back": {}},
-            "l_leg_layer":  {"front": {}, "back": {}}
+            "head": {"front": {}, "back": {}},
+            "torso": {"front": {}, "back": {}},
+            "torso_layer": {"front": {}, "back": {}},
+            "r_arm": {"front": {}, "back": {}},
+            "r_arm_layer": {"front": {}, "back": {}},
+            "l_arm": {"front": {}, "back": {}},
+            "l_arm_layer": {"front": {}, "back": {}},
+            "r_leg": {"front": {}, "back": {}},
+            "r_leg_layer": {"front": {}, "back": {}},
+            "l_leg": {"front": {}, "back": {}},
+            "l_leg_layer": {"front": {}, "back": {}}
         }
 
         self.all_faces = ["back", "right", "top", "front", "left", "bottom"]
@@ -410,7 +433,8 @@ class Render:
             self.set_cube_points()
 
             for cube_point in self.cube_points:
-                cube_point[0].pre_project(0, 0, 0, self.body_angles[k][0], self.body_angles[k][1], self.body_angles[k][2], self.body_angles[k][3])
+                cube_point[0].pre_project(0, 0, 0, self.body_angles[k][0], self.body_angles[k][1],
+                                          self.body_angles[k][2], self.body_angles[k][3])
                 cube_point[0].project()
 
                 if (cube_max_depth_faces == None) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
@@ -436,65 +460,65 @@ class Render:
             "x": 0,
             "y": 0,
             "z": 0
-            }),
-            ["back", "right", "top"]
-            ))
+        }),
+                                 ["back", "right", "top"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 0,
             "y": 0,
             "z": 1
-            }),
-            ["front", "right", "top"]
-            ))
+        }),
+                                 ["front", "right", "top"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 0,
             "y": 1,
             "z": 0
-            }),
-            ["back", "right", "bottom"]
-            ))
+        }),
+                                 ["back", "right", "bottom"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 0,
             "y": 1,
             "z": 1
-            }),
-            ["front", "right", "bottom"]
-            ))
+        }),
+                                 ["front", "right", "bottom"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 1,
             "y": 0,
             "z": 0
-            }),
-            ["back", "left", "top"]
-            ))
+        }),
+                                 ["back", "left", "top"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 1,
             "y": 0,
             "z": 1
-            }),
-            ["front", "left", "top"]
-            ))
+        }),
+                                 ["front", "left", "top"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 1,
             "y": 1,
             "z": 0
-            }),
-            ["back", "left", "bottom"]
-            ))
+        }),
+                                 ["back", "left", "bottom"]
+                                 ))
 
         self.cube_points.append((Point(self, {
             "x": 1,
             "y": 1,
             "z": 1
-            }),
-            ["front", "left", "bottom"]
-            ))
+        }),
+                                 ["front", "left", "bottom"]
+                                 ))
 
     def generate_polygons(self, hd_ratio, skin):
         self.polygons = {
@@ -516,18 +540,22 @@ class Render:
         volume_points = {}
         for i in range(0, 9 * hd_ratio):
             for j in range(0, 9 * hd_ratio):
-                volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point(self, {"x": i, "y": j, "z": -2 * hd_ratio}))
-                volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point(self, {"x": i, "y": j, "z": 6 * hd_ratio}))
+                volume_points = append_dict(volume_points, i, j, -2 * hd_ratio,
+                                            Point(self, {"x": i, "y": j, "z": -2 * hd_ratio}))
+                volume_points = append_dict(volume_points, i, j, 6 * hd_ratio,
+                                            Point(self, {"x": i, "y": j, "z": 6 * hd_ratio}))
 
         for j in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
                 volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j, "z": k}))
-                volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j, "z": k}))
+                volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
+                                            Point(self, {"x": 8 * hd_ratio, "y": j, "z": k}))
 
         for i in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
                 volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 0, "z": k}))
-                volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                volume_points = append_dict(volume_points, i, 8 * hd_ratio, k,
+                                            Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
 
         if "back" in self.visible_faces["head"]["front"]:
             for i in range(0, 8 * hd_ratio):
@@ -606,93 +634,132 @@ class Render:
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 9 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, -2 * hd_ratio, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": -2.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, i, j, 6 * hd_ratio, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": 6.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, -2 * hd_ratio,
+                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "z": -2.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 6 * hd_ratio,
+                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "z": 6.25 * hd_ratio}))
 
             for j in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8.25 * hd_ratio, "y": j * 8.5 / 8 - 0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, 0, j, k,
+                                                Point(self, {"x": -0.25 * hd_ratio,
+                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
+                                                Point(self, {"x": 8.25 * hd_ratio,
+                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": -0.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
-                    volume_points = append_dict(volume_points, i, 8 * hd_ratio, k, Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio, "y": 8.25 * hd_ratio, "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "y": -0.25 * hd_ratio,
+                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, 8 * hd_ratio, k,
+                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                             "y": 8.25 * hd_ratio,
+                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
-            for i in range(0, 8 * hd_ratio):
+            if "back" in self.visible_faces["helmet"]["front"]:
+                for i in range(0, 8 * hd_ratio):
+                    for j in range(0, 8 * hd_ratio):
+                        color = skin.getpixel((64 * hd_ratio - 1 - i, 8 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["back"].append(Polygon([
+                                volume_points[i][j][-2 * hd_ratio],
+                                volume_points[i + 1][j][-2 * hd_ratio],
+                                volume_points[i + 1][j + 1][-2 * hd_ratio],
+                                volume_points[i][j + 1][-2 * hd_ratio]],
+                                color))
+
+            if "front" in self.visible_faces["helmet"]["front"]:
+                for i in range(0, 8 * hd_ratio):
+                    for j in range(0, 8 * hd_ratio):
+                        color = skin.getpixel((40 * hd_ratio + i, 8 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["front"].append(Polygon([
+                                volume_points[i][j][6 * hd_ratio],
+                                volume_points[i + 1][j][6 * hd_ratio],
+                                volume_points[i + 1][j + 1][6 * hd_ratio],
+                                volume_points[i][j + 1][6 * hd_ratio]],
+                                color))
+
+            if "right" in self.visible_faces["helmet"]["front"]:
                 for j in range(0, 8 * hd_ratio):
-                    color = skin.getpixel((64 * hd_ratio - 1 - i, 8 * hd_ratio + j))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["back"].append(Polygon([
-                            volume_points[i][j][-2 * hd_ratio],
-                            volume_points[i + 1][j][-2 * hd_ratio],
-                            volume_points[i + 1][j + 1][-2 * hd_ratio],
-                            volume_points[i][j + 1][-2 * hd_ratio]],
-                            color))
-                    color = skin.getpixel((40 * hd_ratio + i, 8 * hd_ratio + j))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["front"].append(Polygon([
-                            volume_points[i][j][6 * hd_ratio],
-                            volume_points[i + 1][j][6 * hd_ratio],
-                            volume_points[i + 1][j + 1][6 * hd_ratio],
-                            volume_points[i][j + 1][6 * hd_ratio]],
-                            color))
+                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                        color = skin.getpixel((34 * hd_ratio + k, 8 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["right"].append(Polygon([
+                                volume_points[0][j][k],
+                                volume_points[0][j][k + 1],
+                                volume_points[0][j + 1][k + 1],
+                                volume_points[0][j + 1][k]],
+                                color))
 
-            for j in range(0, 8 * hd_ratio):
-                for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                    color = skin.getpixel((34 * hd_ratio + k, 8 * hd_ratio + j))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["right"].append(Polygon([
-                            volume_points[0][j][k],
-                            volume_points[0][j][k + 1],
-                            volume_points[0][j + 1][k + 1],
-                            volume_points[0][j + 1][k]],
-                            color))
-                    color = skin.getpixel((54 * hd_ratio - k - 1, 8 * hd_ratio + j))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["left"].append(Polygon([
-                            volume_points[8 * hd_ratio][j][k],
-                            volume_points[8 * hd_ratio][j][k + 1],
-                            volume_points[8 * hd_ratio][j + 1][k + 1],
-                            volume_points[8 * hd_ratio][j + 1][k]],
-                            color))
+            if "left" in self.visible_faces["helmet"]["front"]:
+                for j in range(0, 8 * hd_ratio):
+                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                        color = skin.getpixel((54 * hd_ratio - k - 1, 8 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["left"].append(Polygon([
+                                volume_points[8 * hd_ratio][j][k],
+                                volume_points[8 * hd_ratio][j][k + 1],
+                                volume_points[8 * hd_ratio][j + 1][k + 1],
+                                volume_points[8 * hd_ratio][j + 1][k]],
+                                color))
 
-            for i in range(0, 8 * hd_ratio):
-                for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                    color = skin.getpixel((40 * hd_ratio + i, 2 * hd_ratio + k))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["top"].append(Polygon([
-                            volume_points[i][0][k],
-                            volume_points[i + 1][0][k],
-                            volume_points[i + 1][0][k + 1],
-                            volume_points[i][0][k + 1]],
-                            color))
-                    color = skin.getpixel((48 * hd_ratio + 1, 2 * hd_ratio + k))
-                    if color[3] != 0:
-                        self.polygons["helmet"]["bottom"].append(Polygon([
-                            volume_points[i][8 * hd_ratio][k],
-                            volume_points[i + 1][8 * hd_ratio][k],
-                            volume_points[i + 1][8 * hd_ratio][k + 1],
-                            volume_points[i][8 * hd_ratio][k + 1]],
-                            color))
+            if "top" in self.visible_faces["helmet"]["front"]:
+                for i in range(0, 8 * hd_ratio):
+                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                        color = skin.getpixel((40 * hd_ratio + i, 2 * hd_ratio + k))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["top"].append(Polygon([
+                                volume_points[i][0][k],
+                                volume_points[i + 1][0][k],
+                                volume_points[i + 1][0][k + 1],
+                                volume_points[i][0][k + 1]],
+                                color))
 
-        if self.head_only == False:
+            if "bottom" in self.visible_faces["helmet"]["front"]:
+                for i in range(0, 8 * hd_ratio):
+                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                        color = skin.getpixel((48 * hd_ratio + 1, 2 * hd_ratio + k))
+                        if color[3] != 0:
+                            self.polygons["helmet"]["bottom"].append(Polygon([
+                                volume_points[i][8 * hd_ratio][k],
+                                volume_points[i + 1][8 * hd_ratio][k],
+                                volume_points[i + 1][8 * hd_ratio][k + 1],
+                                volume_points[i][8 * hd_ratio][k + 1]],
+                                color))
+
+        if not self.head_only:
             """Torso"""
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0,
+                                                Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k,
+                                                Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
+                                                Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["torso"]["front"]:
                 for i in range(0, 8 * hd_ratio):
@@ -771,97 +838,137 @@ class Render:
                 volume_points = {}
                 for i in range(0, 9 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 8 * hd_ratio, j, k, Point(self, {"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k,
+                                                    Point(self, {"x": -0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
+                                                    Point(self, {"x": 8.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 9 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                 "y": 7.875 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                 "y": 20.125 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 8 * hd_ratio):
+                if "back" in self.visible_faces["torso_layer"]["front"]:
+                    for i in range(0, 8 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel(((40 * hd_ratio - 1) - i, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color))
+
+                if "front" in self.visible_faces["torso_layer"]["front"]:
+                    for i in range(0, 8 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((20 * hd_ratio + i, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["front"].append(Polygon([
+                                    volume_points[i][j][4 * hd_ratio],
+                                    volume_points[i + 1][j][4 * hd_ratio],
+                                    volume_points[i + 1][j + 1][4 * hd_ratio],
+                                    volume_points[i][j + 1][4 * hd_ratio]],
+                                    color))
+
+                if "right" in self.visible_faces["torso_layer"]["front"]:
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel(((40 * hd_ratio - 1) - i, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["back"].append(Polygon([
-                                volume_points[i][j][0],
-                                volume_points[i + 1][j][0],
-                                volume_points[i + 1][j + 1][0],
-                                volume_points[i][j + 1][0]],
-                                color))
-                        color = skin.getpixel((20 * hd_ratio + i, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["front"].append(Polygon([
-                                volume_points[i][j][4 * hd_ratio],
-                                volume_points[i + 1][j][4 * hd_ratio],
-                                volume_points[i + 1][j + 1][4 * hd_ratio],
-                                volume_points[i][j + 1][4 * hd_ratio]],
-                                color))
+                        for k in range(0 * hd_ratio, 4 * hd_ratio):
+                            color = skin.getpixel((16 * hd_ratio + k, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["right"].append(Polygon([
+                                    volume_points[0][j][k],
+                                    volume_points[0][j][k + 1],
+                                    volume_points[0][j + 1][k + 1],
+                                    volume_points[0][j + 1][k]],
+                                    color))
 
-                for j in range(0, 12 * hd_ratio):
-                    for k in range(0 * hd_ratio, 4 * hd_ratio):
-                        color = skin.getpixel((16 * hd_ratio + k, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color))
-                        color = skin.getpixel(((32 * hd_ratio - 1) - k, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["left"].append(Polygon([
-                                volume_points[8 * hd_ratio][j][k],
-                                volume_points[8 * hd_ratio][j][k + 1],
-                                volume_points[8 * hd_ratio][j + 1][k + 1],
-                                volume_points[8 * hd_ratio][j + 1][k]],
-                                color))
+                if "left" in self.visible_faces["torso_layer"]["front"]:
+                    for j in range(0, 12 * hd_ratio):
+                        for k in range(0 * hd_ratio, 4 * hd_ratio):
+                            color = skin.getpixel(((32 * hd_ratio - 1) - k, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["left"].append(Polygon([
+                                    volume_points[8 * hd_ratio][j][k],
+                                    volume_points[8 * hd_ratio][j][k + 1],
+                                    volume_points[8 * hd_ratio][j + 1][k + 1],
+                                    volume_points[8 * hd_ratio][j + 1][k]],
+                                    color))
 
-                for i in range(0, 8 * hd_ratio):
-                    for k in range(0 * hd_ratio, 4 * hd_ratio):
-                        color = skin.getpixel((20 * hd_ratio + i, 16 * hd_ratio + k + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color))
-                        color = skin.getpixel((28 * hd_ratio + i, (20 * hd_ratio - 1) - k + 16))
-                        if color[3] != 0:
-                            self.polygons["torso_layer"]["bottom"].append(Polygon([
-                                volume_points[i][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k + 1],
-                                volume_points[i][12 * hd_ratio][k + 1]],
-                                color))
+                if "top" in self.visible_faces["torso_layer"]["front"]:
+                    for i in range(0, 8 * hd_ratio):
+                        for k in range(0 * hd_ratio, 4 * hd_ratio):
+                            color = skin.getpixel((20 * hd_ratio + i, 16 * hd_ratio + k + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["top"].append(Polygon([
+                                    volume_points[i][0][k],
+                                    volume_points[i + 1][0][k],
+                                    volume_points[i + 1][0][k + 1],
+                                    volume_points[i][0][k + 1]],
+                                    color))
 
+                if "bottom" in self.visible_faces["torso_layer"]["front"]:
+                    for i in range(0, 8 * hd_ratio):
+                        for k in range(0 * hd_ratio, 4 * hd_ratio):
+                            color = skin.getpixel((28 * hd_ratio + i, (20 * hd_ratio - 1) - k + 16))
+                            if color[3] != 0:
+                                self.polygons["torso_layer"]["bottom"].append(Polygon([
+                                    volume_points[i][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k + 1],
+                                    volume_points[i][12 * hd_ratio][k + 1]],
+                                    color))
+
+            start = 1 if self.slim else 0
             """Right arm"""
             volume_points = {}
-            for i in range(0, 5 * hd_ratio):
+            for i in range(start, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0,
+                                                Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -4 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, start, j, k,
+                                                Point(self, {"x": -4 * hd_ratio + start, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
 
-            for i in range(0, 5 * hd_ratio):
+            for i in range(start, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i - 4 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i - 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i - 4 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                Point(self, {"x": i - 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["r_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(start, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel(((56 * hd_ratio - 1) - i, 20 * hd_ratio + j))
+                        color = skin.getpixel((((56 - start * 2) * hd_ratio - 1) - i, 20 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["r_arm"]["back"].append(Polygon([
                                 volume_points[i][j][0],
@@ -871,7 +978,7 @@ class Render:
                                 color))
 
             if "front" in self.visible_faces["r_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(start, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
                         color = skin.getpixel((44 * hd_ratio + i, 20 * hd_ratio + j))
                         if color[3] != 0:
@@ -888,16 +995,16 @@ class Render:
                         color = skin.getpixel((40 * hd_ratio + k, 20 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["r_arm"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
+                                volume_points[start][j][k],
+                                volume_points[start][j][k + 1],
+                                volume_points[start][j + 1][k + 1],
+                                volume_points[start][j + 1][k]],
                                 color))
 
             if "left" in self.visible_faces["r_arm"]["front"]:
                 for j in range(0, 12 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel(((52 * hd_ratio - 1) - k, 20 * hd_ratio + j))
+                        color = skin.getpixel((((52 - start) * hd_ratio - 1) - k, 20 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["r_arm"]["left"].append(Polygon([
                                 volume_points[4 * hd_ratio][j][k],
@@ -907,7 +1014,7 @@ class Render:
                                 color))
 
             if "top" in self.visible_faces["r_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(start, 4 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
                         color = skin.getpixel((44 * hd_ratio + i, 16 * hd_ratio + k))
                         if color[3] != 0:
@@ -919,9 +1026,9 @@ class Render:
                                 color))
 
             if "bottom" in self.visible_faces["r_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(start, 4 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((48 * hd_ratio + i, 16 * hd_ratio + k))
+                        color = skin.getpixel(((48 - start) * hd_ratio + i, 16 * hd_ratio + k))
                         if color[3] != 0:
                             self.polygons["r_arm"]["bottom"].append(Polygon([
                                 volume_points[i][12 * hd_ratio][k],
@@ -933,99 +1040,138 @@ class Render:
             """Right arm 2nd layer"""
             if self.layers:
                 volume_points = {}
-                for i in range(0, 5 * hd_ratio):
+                for i in range(start, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, start, j, k,
+                                                    Point(self, {"x": (-4.125 + start) * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                    Point(self, {"x": 0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 5 * hd_ratio):
+                for i in range(start, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                 "y": 7.875 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                 "y": 20.125 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 4 * hd_ratio):
+                if "back" in self.visible_faces["r_arm_layer"]["front"]:
+                    for i in range(start, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((((56 - start * 2) * hd_ratio - 1) - i, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color))
+
+                if "front" in self.visible_faces["r_arm_layer"]["front"]:
+                    for i in range(start, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((44 * hd_ratio + i, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["front"].append(Polygon([
+                                    volume_points[i][j][4 * hd_ratio],
+                                    volume_points[i + 1][j][4 * hd_ratio],
+                                    volume_points[i + 1][j + 1][4 * hd_ratio],
+                                    volume_points[i][j + 1][4 * hd_ratio]],
+                                    color))
+
+                if "right" in self.visible_faces["r_arm_layer"]["front"]:
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel(((56 * hd_ratio - 1) - i, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["back"].append(Polygon([
-                                volume_points[i][j][0],
-                                volume_points[i + 1][j][0],
-                                volume_points[i + 1][j + 1][0],
-                                volume_points[i][j + 1][0]],
-                                color))
-                        color = skin.getpixel((44 * hd_ratio + i, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["front"].append(Polygon([
-                                volume_points[i][j][4 * hd_ratio],
-                                volume_points[i + 1][j][4 * hd_ratio],
-                                volume_points[i + 1][j + 1][4 * hd_ratio],
-                                volume_points[i][j + 1][4 * hd_ratio]],
-                                color))
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((40 * hd_ratio + k, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["right"].append(Polygon([
+                                    volume_points[start][j][k],
+                                    volume_points[start][j][k + 1],
+                                    volume_points[start][j + 1][k + 1],
+                                    volume_points[start][j + 1][k]],
+                                    color))
 
-                for j in range(0, 12 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((40 * hd_ratio + k, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color))
-                        color = skin.getpixel(((52 * hd_ratio - 1) - k, 20 * hd_ratio + j + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["left"].append(Polygon([
-                                volume_points[4 * hd_ratio][j][k],
-                                volume_points[4 * hd_ratio][j][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k]],
-                                color))
+                if "left" in self.visible_faces["r_arm_layer"]["front"]:
+                    for j in range(0, 12 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((((52 - start) * hd_ratio - 1) - k, 20 * hd_ratio + j + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["left"].append(Polygon([
+                                    volume_points[4 * hd_ratio][j][k],
+                                    volume_points[4 * hd_ratio][j][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k]],
+                                    color))
 
-                for i in range(0, 4 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((44 * hd_ratio + i, 16 * hd_ratio + k + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color))
-                        color = skin.getpixel((48 * hd_ratio + i, 16 * hd_ratio + k + 16))
-                        if color[3] != 0:
-                            self.polygons["r_arm_layer"]["bottom"].append(Polygon([
-                                volume_points[i][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k + 1],
-                                volume_points[i][12 * hd_ratio][k + 1]],
-                                color))
+                if "top" in self.visible_faces["r_arm_layer"]["front"]:
+                    for i in range(start, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((44 * hd_ratio + i, 16 * hd_ratio + k + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["top"].append(Polygon([
+                                    volume_points[i][0][k],
+                                    volume_points[i + 1][0][k],
+                                    volume_points[i + 1][0][k + 1],
+                                    volume_points[i][0][k + 1]],
+                                    color))
+
+                if "bottom" in self.visible_faces["r_arm_layer"]["front"]:
+                    for i in range(start, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel(((48 - start) * hd_ratio + i, 16 * hd_ratio + k + 16))
+                            if color[3] != 0:
+                                self.polygons["r_arm_layer"]["bottom"].append(Polygon([
+                                    volume_points[i][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k + 1],
+                                    volume_points[i][12 * hd_ratio][k + 1]],
+                                    color))
 
             """Left arm"""
             volume_points = {}
-            for i in range(0, 5 * hd_ratio):
+            for i in range(0, (5 - start) * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0,
+                                                Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 12 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k,
+                                                Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, (4 - start) * hd_ratio, j, k,
+                                                Point(self, {"x": (12 - start) * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
 
-            for i in range(0, 5 * hd_ratio):
+            for i in range(0, (5 - start) * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i + 8 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i + 8 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i + 8 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                Point(self, {"x": i + 8 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["l_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(0, (4 - start) * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel((48 * hd_ratio - 1 - i, 52 * hd_ratio + j))
+                        color = skin.getpixel(((48 - start * 2) * hd_ratio - 1 - i, 52 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["l_arm"]["back"].append(Polygon([
                                 volume_points[i][j][0],
@@ -1035,7 +1181,7 @@ class Render:
                                 color))
 
             if "front" in self.visible_faces["l_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(0, (4 - start) * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
                         color = skin.getpixel((36 * hd_ratio + i, 52 * hd_ratio + j))
                         if color[3] != 0:
@@ -1061,17 +1207,17 @@ class Render:
             if "left" in self.visible_faces["l_arm"]["front"]:
                 for j in range(0, 12 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((44 * hd_ratio - 1 - k, 52 * hd_ratio + j))
+                        color = skin.getpixel(((44 - start) * hd_ratio - 1 - k, 52 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["l_arm"]["left"].append(Polygon([
-                                volume_points[4 * hd_ratio][j][k],
-                                volume_points[4 * hd_ratio][j][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k]],
+                                volume_points[(4 - start) * hd_ratio][j][k],
+                                volume_points[(4 - start) * hd_ratio][j][k + 1],
+                                volume_points[(4 - start) * hd_ratio][j + 1][k + 1],
+                                volume_points[(4 - start) * hd_ratio][j + 1][k]],
                                 color))
 
             if "top" in self.visible_faces["l_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(0, (4 - start) * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
                         color = skin.getpixel((36 * hd_ratio + i, 48 * hd_ratio + k))
                         if color[3] != 0:
@@ -1083,9 +1229,9 @@ class Render:
                                 color))
 
             if "bottom" in self.visible_faces["l_arm"]["front"]:
-                for i in range(0, 4 * hd_ratio):
+                for i in range(0, (4 - start) * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((40 * hd_ratio + i, 48 * hd_ratio + k))
+                        color = skin.getpixel(((40 - start) * hd_ratio + i, 48 * hd_ratio + k))
                         if color[3] != 0:
                             self.polygons["l_arm"]["bottom"].append(Polygon([
                                 volume_points[i][12 * hd_ratio][k],
@@ -1097,94 +1243,133 @@ class Render:
             """Left arm 2nd layer"""
             if self.layers:
                 volume_points = {}
-                for i in range(0, 5 * hd_ratio):
+                for i in range(0, (5 - start) * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 7.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 12.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k,
+                                                    Point(self, {"x": 7.875 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, (4 - start) * hd_ratio, j, k,
+                                                    Point(self, {"x": (12.125 - start) * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 5 * hd_ratio):
+                for i in range(0, (5 - start) * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 7.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio, "y": 20.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "y": 7.875 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                 "y": 20.125 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 4 * hd_ratio):
+                if "back" in self.visible_faces["l_arm_layer"]["front"]:
+                    for i in range(0, (4 - start) * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel(((64 - start * 2) * hd_ratio - 1 - i, 52 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color))
+
+                if "front" in self.visible_faces["l_arm_layer"]["front"]:
+                    for i in range(0, (4 - start) * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((52 * hd_ratio + i, 52 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["front"].append(Polygon([
+                                    volume_points[i][j][4 * hd_ratio],
+                                    volume_points[i + 1][j][4 * hd_ratio],
+                                    volume_points[i + 1][j + 1][4 * hd_ratio],
+                                    volume_points[i][j + 1][4 * hd_ratio]],
+                                    color))
+
+                if "right" in self.visible_faces["l_arm_layer"]["front"]:
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel((64 * hd_ratio - 1 - i, 52 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["back"].append(Polygon([
-                                volume_points[i][j][0],
-                                volume_points[i + 1][j][0],
-                                volume_points[i + 1][j + 1][0],
-                                volume_points[i][j + 1][0]],
-                                color))
-                        color = skin.getpixel((52 * hd_ratio + i, 52 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["front"].append(Polygon([
-                                volume_points[i][j][4 * hd_ratio],
-                                volume_points[i + 1][j][4 * hd_ratio],
-                                volume_points[i + 1][j + 1][4 * hd_ratio],
-                                volume_points[i][j + 1][4 * hd_ratio]],
-                                color))
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((48 * hd_ratio + k, 52 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["right"].append(Polygon([
+                                    volume_points[0][j][k],
+                                    volume_points[0][j][k + 1],
+                                    volume_points[0][j + 1][k + 1],
+                                    volume_points[0][j + 1][k]],
+                                    color))
 
-                for j in range(0, 12 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((48 * hd_ratio + k, 52 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color))
-                        color = skin.getpixel((60 * hd_ratio - 1 - k, 52 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["left"].append(Polygon([
-                                volume_points[4 * hd_ratio][j][k],
-                                volume_points[4 * hd_ratio][j][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k]],
-                                color))
+                if "left" in self.visible_faces["l_arm_layer"]["front"]:
+                    for j in range(0, 12 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel(((60 - start) * hd_ratio - 1 - k, 52 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["left"].append(Polygon([
+                                    volume_points[(4 - start) * hd_ratio][j][k],
+                                    volume_points[(4 - start) * hd_ratio][j][k + 1],
+                                    volume_points[(4 - start) * hd_ratio][j + 1][k + 1],
+                                    volume_points[(4 - start) * hd_ratio][j + 1][k]],
+                                    color))
 
-                for i in range(0, 4 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((52 * hd_ratio + i, 48 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color))
-                        color = skin.getpixel((56 * hd_ratio + i, 48 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["l_arm_layer"]["bottom"].append(Polygon([
-                                volume_points[i][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k + 1],
-                                volume_points[i][12 * hd_ratio][k + 1]],
-                                color))
+                if "top" in self.visible_faces["l_arm_layer"]["front"]:
+                    for i in range(0, (4 - start) * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((52 * hd_ratio + i, 48 * hd_ratio + k))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["top"].append(Polygon([
+                                    volume_points[i][0][k],
+                                    volume_points[i + 1][0][k],
+                                    volume_points[i + 1][0][k + 1],
+                                    volume_points[i][0][k + 1]],
+                                    color))
+
+                if "bottom" in self.visible_faces["l_arm_layer"]["front"]:
+                    for i in range(0, (4 - start) * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel(((56 - start) * hd_ratio + i, 48 * hd_ratio + k))
+                            if color[3] != 0:
+                                self.polygons["l_arm_layer"]["bottom"].append(Polygon([
+                                    volume_points[i][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k + 1],
+                                    volume_points[i][12 * hd_ratio][k + 1]],
+                                    color))
 
             """Right leg"""
             volume_points = {}
             for i in range(0, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0,
+                                                Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j + 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k,
+                                                Point(self, {"x": 0, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
 
             for i in range(0, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i, "y": 32 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                Point(self, {"x": i, "y": 32 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["r_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1263,92 +1448,135 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": -0.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 4.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k,
+                                                    Point(self, {"x": -0.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                    Point(self, {"x": 4.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                 "y": 19.875 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                 "y": 32.125 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 4 * hd_ratio):
+                if "back" in self.visible_faces["r_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((16 * hd_ratio - 1 - i, 36 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color))
+
+                if "front" in self.visible_faces["r_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color = skin.getpixel((4 * hd_ratio + i, 36 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["front"].append(Polygon([
+                                    volume_points[i][j][4 * hd_ratio],
+                                    volume_points[i + 1][j][4 * hd_ratio],
+                                    volume_points[i + 1][j + 1][4 * hd_ratio],
+                                    volume_points[i][j + 1][4 * hd_ratio]],
+                                    color))
+
+                if "right" in self.visible_faces["r_leg_layer"]["front"]:
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel((16 * hd_ratio - 1 - i, 36 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["back"].append(Polygon([
-                                volume_points[i][j][0],
-                                volume_points[i + 1][j][0],
-                                volume_points[i + 1][j + 1][0],
-                                volume_points[i][j + 1][0]],
-                                color))
-                        color = skin.getpixel((4 * hd_ratio + i, 36 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["front"].append(Polygon([
-                                volume_points[i][j][4 * hd_ratio],
-                                volume_points[i + 1][j][4 * hd_ratio],
-                                volume_points[i + 1][j + 1][4 * hd_ratio],
-                                volume_points[i][j + 1][4 * hd_ratio]],
-                                color))
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((k, 36 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["right"].append(Polygon([
+                                    volume_points[0][j][k],
+                                    volume_points[0][j][k + 1],
+                                    volume_points[0][j + 1][k + 1],
+                                    volume_points[0][j + 1][k]],
+                                    color))
 
-                for j in range(0, 12 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((k, 36 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color))
-                        color = skin.getpixel((12 * hd_ratio - 1 - k, 36 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["left"].append(Polygon([
-                                volume_points[4 * hd_ratio][j][k],
-                                volume_points[4 * hd_ratio][j][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k]],
-                                color))
+                if "left" in self.visible_faces["r_leg_layer"]["front"]:
+                    for j in range(0, 12 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((12 * hd_ratio - 1 - k, 36 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["left"].append(Polygon([
+                                    volume_points[4 * hd_ratio][j][k],
+                                    volume_points[4 * hd_ratio][j][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k]],
+                                    color))
 
-                for i in range(0, 4 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((4 * hd_ratio + i, 32 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color))
-                        color = skin.getpixel((8 * hd_ratio + i, 32 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["r_leg_layer"]["bottom"].append(Polygon([
-                                volume_points[i][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k + 1],
-                                volume_points[i][12 * hd_ratio][k + 1]],
-                                color))
+                if "top" in self.visible_faces["r_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((4 * hd_ratio + i, 32 * hd_ratio + k))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["top"].append(Polygon([
+                                    volume_points[i][0][k],
+                                    volume_points[i + 1][0][k],
+                                    volume_points[i + 1][0][k + 1],
+                                    volume_points[i][0][k + 1]],
+                                    color))
+
+                if "bottom" in self.visible_faces["r_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color = skin.getpixel((8 * hd_ratio + i, 32 * hd_ratio + k))
+                            if color[3] != 0:
+                                self.polygons["r_leg_layer"]["bottom"].append(Polygon([
+                                    volume_points[i][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k + 1],
+                                    volume_points[i][12 * hd_ratio][k + 1]],
+                                    color))
 
             """Left leg"""
             volume_points = {}
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 0}))
-                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": i + 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
+                    volume_points = append_dict(volume_points, i, j, 0,
+                                                Point(self, {"x": i + 4 * hd_ratio,
+                                                             "y": j + 20 * hd_ratio,
+                                                             "z": 0}))
+                    volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                Point(self, {"x": i + 4 * hd_ratio,
+                                                             "y": j + 20 * hd_ratio,
+                                                             "z": 4 * hd_ratio}))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 8 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 0, j, k,
+                                                Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                Point(self, {"x": 8 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
-                    volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i + 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
-                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": i + 4 * hd_ratio, "y": 32 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 0, k,
+                                                Point(self, {"x": i + 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                    volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                Point(self, {"x": i + 4 * hd_ratio, "y": 32 * hd_ratio, "z": k}))
 
             if "back" in self.visible_faces["l_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1427,118 +1655,170 @@ class Render:
                 volume_points = {}
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, j, 0, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": -0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": 4.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": -0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": 4.125 * hd_ratio}))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 3.875 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k, Point(self, {"x": 8.125 * hd_ratio, "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 0, j, k,
+                                                    Point(self, {"x": 3.875 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
+                                                    Point(self, {"x": 8.125 * hd_ratio,
+                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
-                        volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 19.875 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
-                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k, Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio, "y": 32.125 * hd_ratio, "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                 "y": 19.875 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                 "y": 32.125 * hd_ratio,
+                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
 
-                for i in range(0, 4 * hd_ratio):
+                if "back" in self.visible_faces["l_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color1 = skin.getpixel((16 * hd_ratio - 1 - i, 52 * hd_ratio + j))
+                            if color1[3] != 0:
+                                self.polygons["l_leg_layer"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color1))
+
+                if "front" in self.visible_faces["l_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for j in range(0, 12 * hd_ratio):
+                            color2 = skin.getpixel((4 * hd_ratio + i, 52 * hd_ratio + j))
+                            if color2[3] != 0:
+                                self.polygons["l_leg_layer"]["front"].append(Polygon([
+                                    volume_points[i][j][4 * hd_ratio],
+                                    volume_points[i + 1][j][4 * hd_ratio],
+                                    volume_points[i + 1][j + 1][4 * hd_ratio],
+                                    volume_points[i][j + 1][4 * hd_ratio]],
+                                    color2))
+
+                if "right" in self.visible_faces["l_leg_layer"]["front"]:
                     for j in range(0, 12 * hd_ratio):
-                        color1 = skin.getpixel((16 * hd_ratio - 1 - i, 52 * hd_ratio + j))
-                        if color1[3] != 0:
-                            self.polygons["l_leg_layer"]["back"].append(Polygon([
-                                volume_points[i][j][0],
-                                volume_points[i + 1][j][0],
-                                volume_points[i + 1][j + 1][0],
-                                volume_points[i][j + 1][0]],
-                                color1))
-                        color2 = skin.getpixel((4 * hd_ratio + i, 52 * hd_ratio + j))
-                        if color2[3] != 0:
-                            self.polygons["l_leg_layer"]["front"].append(Polygon([
-                                volume_points[i][j][4 * hd_ratio],
-                                volume_points[i + 1][j][4 * hd_ratio],
-                                volume_points[i + 1][j + 1][4 * hd_ratio],
-                                volume_points[i][j + 1][4 * hd_ratio]],
-                                color2))
+                        for k in range(0, 4 * hd_ratio):
+                            color1 = skin.getpixel((k, 52 * hd_ratio + j))
+                            if color1[3] != 0:
+                                self.polygons["l_leg_layer"]["right"].append(Polygon([
+                                    volume_points[0][j][k],
+                                    volume_points[0][j][k + 1],
+                                    volume_points[0][j + 1][k + 1],
+                                    volume_points[0][j + 1][k]],
+                                    color1))
 
-                for j in range(0, 12 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color1 = skin.getpixel((k, 52 * hd_ratio + j))
-                        if color1[3] != 0:
-                            self.polygons["l_leg_layer"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color1))
-                        color2 = skin.getpixel((12 * hd_ratio - 1 - k, 52 * hd_ratio + j))
-                        if color2[3] != 0:
-                            self.polygons["l_leg_layer"]["left"].append(Polygon([
-                                volume_points[4 * hd_ratio][j][k],
-                                volume_points[4 * hd_ratio][j][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k + 1],
-                                volume_points[4 * hd_ratio][j + 1][k]],
-                                color2))
+                if "left" in self.visible_faces["l_leg_layer"]["front"]:
+                    for j in range(0, 12 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color2 = skin.getpixel((12 * hd_ratio - 1 - k, 52 * hd_ratio + j))
+                            if color2[3] != 0:
+                                self.polygons["l_leg_layer"]["left"].append(Polygon([
+                                    volume_points[4 * hd_ratio][j][k],
+                                    volume_points[4 * hd_ratio][j][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k + 1],
+                                    volume_points[4 * hd_ratio][j + 1][k]],
+                                    color2))
 
-                for i in range(0, 4 * hd_ratio):
-                    for k in range(0, 4 * hd_ratio):
-                        color1 = skin.getpixel((4 * hd_ratio + i, 48 * hd_ratio + k))
-                        if color1[3] != 0:
-                            self.polygons["l_leg_layer"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color1))
-                        color2 = skin.getpixel((8 * hd_ratio + i, 48 * hd_ratio + k))
-                        if color2[3] != 0:
-                            self.polygons["l_leg_layer"]["bottom"].append(Polygon([
-                                volume_points[i][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k],
-                                volume_points[i + 1][12 * hd_ratio][k + 1],
-                                volume_points[i][12 * hd_ratio][k + 1]],
-                                color2))
+                if "top" in self.visible_faces["l_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color1 = skin.getpixel((4 * hd_ratio + i, 48 * hd_ratio + k))
+                            if color1[3] != 0:
+                                self.polygons["l_leg_layer"]["top"].append(Polygon([
+                                    volume_points[i][0][k],
+                                    volume_points[i + 1][0][k],
+                                    volume_points[i + 1][0][k + 1],
+                                    volume_points[i][0][k + 1]],
+                                    color1))
+
+                if "bottom" in self.visible_faces["l_leg_layer"]["front"]:
+                    for i in range(0, 4 * hd_ratio):
+                        for k in range(0, 4 * hd_ratio):
+                            color2 = skin.getpixel((8 * hd_ratio + i, 48 * hd_ratio + k))
+                            if color2[3] != 0:
+                                self.polygons["l_leg_layer"]["bottom"].append(Polygon([
+                                    volume_points[i][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k],
+                                    volume_points[i + 1][12 * hd_ratio][k + 1],
+                                    volume_points[i][12 * hd_ratio][k + 1]],
+                                    color2))
 
     def member_rotation(self, hd_ratio):
         for face in self.polygons["head"]:
             for poly in self.polygons["head"][face]:
-                poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0], self.body_angles["head"][1], self.body_angles["head"][2], self.body_angles["head"][3])
+                poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0],
+                                 self.body_angles["head"][1], self.body_angles["head"][2], self.body_angles["head"][3])
 
         if self.display_hair:
             for face in self.polygons["helmet"]:
                 for poly in self.polygons["helmet"][face]:
-                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0], self.body_angles["head"][1], self.body_angles["head"][2], self.body_angles["head"][3])
+                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0],
+                                     self.body_angles["head"][1], self.body_angles["head"][2],
+                                     self.body_angles["head"][3])
 
         if not self.head_only:
             for face in self.polygons["r_arm"]:
                 for poly in self.polygons["r_arm"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm"][0], self.body_angles["r_arm"][1], self.body_angles["r_arm"][2], self.body_angles["r_arm"][3])
+                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm"][0],
+                                     self.body_angles["r_arm"][1], self.body_angles["r_arm"][2],
+                                     self.body_angles["r_arm"][3])
 
             for face in self.polygons["r_arm_layer"]:
                 for poly in self.polygons["r_arm_layer"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm_layer"][0], self.body_angles["r_arm_layer"][1], self.body_angles["r_arm_layer"][2], self.body_angles["r_arm_layer"][3])
+                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm_layer"][0],
+                                     self.body_angles["r_arm_layer"][1], self.body_angles["r_arm_layer"][2],
+                                     self.body_angles["r_arm_layer"][3])
 
             for face in self.polygons["l_arm"]:
                 for poly in self.polygons["l_arm"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm"][0], self.body_angles["l_arm"][1], self.body_angles["l_arm"][2], self.body_angles["l_arm"][3])
+                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm"][0],
+                                     self.body_angles["l_arm"][1], self.body_angles["l_arm"][2],
+                                     self.body_angles["l_arm"][3])
 
             for face in self.polygons["l_arm_layer"]:
                 for poly in self.polygons["l_arm_layer"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm_layer"][0], self.body_angles["l_arm_layer"][1], self.body_angles["l_arm_layer"][2], self.body_angles["l_arm_layer"][3])
+                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm_layer"][0],
+                                     self.body_angles["l_arm_layer"][1], self.body_angles["l_arm_layer"][2],
+                                     self.body_angles["l_arm_layer"][3])
 
             for face in self.polygons["r_leg"]:
                 for poly in self.polygons["r_leg"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg"][0], self.body_angles["r_leg"][1], self.body_angles["r_leg"][2], self.body_angles["r_leg"][3])
+                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg"][0],
+                                     self.body_angles["r_leg"][1], self.body_angles["r_leg"][2],
+                                     self.body_angles["r_leg"][3])
 
             for face in self.polygons["r_leg_layer"]:
                 for poly in self.polygons["r_leg_layer"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg_layer"][0], self.body_angles["r_leg_layer"][1], self.body_angles["r_leg_layer"][2], self.body_angles["r_leg_layer"][3])
+                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg_layer"][0],
+                                     self.body_angles["r_leg_layer"][1], self.body_angles["r_leg_layer"][2],
+                                     self.body_angles["r_leg_layer"][3])
 
             for face in self.polygons["l_leg"]:
                 for poly in self.polygons["l_leg"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg"][0], self.body_angles["l_leg"][1], self.body_angles["l_leg"][2], self.body_angles["l_leg"][3])
+                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg"][0],
+                                     self.body_angles["l_leg"][1], self.body_angles["l_leg"][2],
+                                     self.body_angles["l_leg"][3])
 
             for face in self.polygons["l_leg_layer"]:
                 for poly in self.polygons["l_leg_layer"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg_layer"][0], self.body_angles["l_leg_layer"][1], self.body_angles["l_leg_layer"][2], self.body_angles["l_leg_layer"][3])
+                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg_layer"][0],
+                                     self.body_angles["l_leg_layer"][1], self.body_angles["l_leg_layer"][2],
+                                     self.body_angles["l_leg_layer"][3])
 
     def create_project_plan(self):
         for piece in self.polygons:
@@ -1670,8 +1950,9 @@ class Render:
 
         return display_order
 
+
 class Point():
-    def __init__(self, super_cls, origin_coords, dest_coords = {}, is_projected = False, is_pre_projected = False):
+    def __init__(self, super_cls, origin_coords, dest_coords={}, is_projected=False, is_pre_projected=False):
         self.dest_coords = dest_coords
         self.is_projected = is_projected
         self.is_pre_projected = is_pre_projected
@@ -1702,8 +1983,10 @@ class Point():
         z = self.origin_coords["z"]
         self.dest_coords = {}
         self.dest_coords["x"] = x * self.super.cos_b + z * self.super.sin_b
-        self.dest_coords["y"] = x * self.super.sin_a * self.super.sin_b + y * self.super.cos_a - z * self.super.sin_a * self.super.cos_b
-        self.dest_coords["z"] = -x * self.super.cos_a * self.super.sin_b + y * self.super.sin_a + z * self.super.cos_a * self.super.cos_b
+        self.dest_coords[
+            "y"] = x * self.super.sin_a * self.super.sin_b + y * self.super.cos_a - z * self.super.sin_a * self.super.cos_b
+        self.dest_coords[
+            "z"] = -x * self.super.cos_a * self.super.sin_b + y * self.super.sin_a + z * self.super.cos_a * self.super.cos_b
         self.is_projected = True
         self.super.min_x = min(self.super.min_x, self.dest_coords["x"])
         self.super.max_x = max(self.super.max_x, self.dest_coords["x"])
@@ -1718,8 +2001,9 @@ class Point():
     def get_dest_coords(self):
         return self.dest_coords
 
+
 class Polygon():
-    def __init__(self, dots, color, is_projected = False, face = "w", face_depth = 0):
+    def __init__(self, dots, color, is_projected=False, face="w", face_depth=0):
         self.face = face
         self.is_projected = is_projected
         self.face_depth = face_depth
@@ -1749,9 +2033,9 @@ class Polygon():
 
         for dot in self.dots:
             coord = dot.dest_coords
-            if coord_x == None:
+            if not coord_x:
                 coord_x = coord["x"]
-            if coord_y == None:
+            if  not coord_y:
                 coord_y = coord["y"]
             if coord_x != coord["x"]:
                 same_plan_x = False
@@ -1772,10 +2056,11 @@ class Polygon():
         for dot in self.dots:
             dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
 
+
 if __name__ == "__main__":
-    user: str = "HellFire6969"
-    vr: int = 50
-    hr: int = 35
+    user: str = "Herobrine"
+    vr: int = -35
+    hr: int = -35
     hrh: int = 0
     vrll: int = 0
     vrrl: int = 0
@@ -1783,9 +2068,15 @@ if __name__ == "__main__":
     vrra: int = 0
     ratio: int = 12
     head_only: bool = False
-    display_hair: bool = True
+    display_hair: bool = False
     display_second_layer: bool = True
     aa: bool = False
     skin_image: Image = None
 
-    im = asyncio.run(render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa, skin_image))
+    if not head_only:
+        im = asyncio.run(
+            render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa,
+                           skin_image))
+    else:
+        im = asyncio.run(render_3d_head(user, vr, hr, ratio, display_hair, aa, skin_image))
+    im.show()
