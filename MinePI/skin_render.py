@@ -968,7 +968,7 @@ class Render:
             if "back" in self.visible_faces["r_arm"]["front"]:
                 for i in range(start, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel((((56 - start * 2) * hd_ratio - 1) - i, 20 * hd_ratio + j))
+                        color = skin.getpixel((((56 - start) * hd_ratio - 1) - i, 20 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["r_arm"]["back"].append(Polygon([
                                 volume_points[i][j][0],
@@ -980,7 +980,7 @@ class Render:
             if "front" in self.visible_faces["r_arm"]["front"]:
                 for i in range(start, 4 * hd_ratio):
                     for j in range(0, 12 * hd_ratio):
-                        color = skin.getpixel((44 * hd_ratio + i, 20 * hd_ratio + j))
+                        color = skin.getpixel(((44 - start) * hd_ratio + i, 20 * hd_ratio + j))
                         if color[3] != 0:
                             self.polygons["r_arm"]["front"].append(Polygon([
                                 volume_points[i][j][4 * hd_ratio],
@@ -1016,7 +1016,7 @@ class Render:
             if "top" in self.visible_faces["r_arm"]["front"]:
                 for i in range(start, 4 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel((44 * hd_ratio + i, 16 * hd_ratio + k))
+                        color = skin.getpixel(((44 - start) * hd_ratio + i, 16 * hd_ratio + k))
                         if color[3] != 0:
                             self.polygons["r_arm"]["top"].append(Polygon([
                                 volume_points[i][0][k],
@@ -1028,7 +1028,7 @@ class Render:
             if "bottom" in self.visible_faces["r_arm"]["front"]:
                 for i in range(start, 4 * hd_ratio):
                     for k in range(0, 4 * hd_ratio):
-                        color = skin.getpixel(((48 - start) * hd_ratio + i, 16 * hd_ratio + k))
+                        color = skin.getpixel(((48 - start * 2) * hd_ratio + i, 16 * hd_ratio + k))
                         if color[3] != 0:
                             self.polygons["r_arm"]["bottom"].append(Polygon([
                                 volume_points[i][12 * hd_ratio][k],
@@ -1088,7 +1088,7 @@ class Render:
                 if "front" in self.visible_faces["r_arm_layer"]["front"]:
                     for i in range(start, 4 * hd_ratio):
                         for j in range(0, 12 * hd_ratio):
-                            color = skin.getpixel((44 * hd_ratio + i, 20 * hd_ratio + j + 16))
+                            color = skin.getpixel(((44 - start) * hd_ratio + i, 20 * hd_ratio + j + 16))
                             if color[3] != 0:
                                 self.polygons["r_arm_layer"]["front"].append(Polygon([
                                     volume_points[i][j][4 * hd_ratio],
@@ -1124,7 +1124,7 @@ class Render:
                 if "top" in self.visible_faces["r_arm_layer"]["front"]:
                     for i in range(start, 4 * hd_ratio):
                         for k in range(0, 4 * hd_ratio):
-                            color = skin.getpixel((44 * hd_ratio + i, 16 * hd_ratio + k + 16))
+                            color = skin.getpixel(((44 - start) * hd_ratio + i, 16 * hd_ratio + k + 16))
                             if color[3] != 0:
                                 self.polygons["r_arm_layer"]["top"].append(Polygon([
                                     volume_points[i][0][k],
@@ -1136,7 +1136,7 @@ class Render:
                 if "bottom" in self.visible_faces["r_arm_layer"]["front"]:
                     for i in range(start, 4 * hd_ratio):
                         for k in range(0, 4 * hd_ratio):
-                            color = skin.getpixel(((48 - start) * hd_ratio + i, 16 * hd_ratio + k + 16))
+                            color = skin.getpixel(((48 - start * 2) * hd_ratio + i, 16 * hd_ratio + k + 16))
                             if color[3] != 0:
                                 self.polygons["r_arm_layer"]["bottom"].append(Polygon([
                                     volume_points[i][12 * hd_ratio][k],
@@ -2058,14 +2058,14 @@ class Polygon():
 
 
 if __name__ == "__main__":
-    user: str = "Herobrine"
+    user: str = "Fixator10"
     vr: int = -35
-    hr: int = -35
+    hr: int = 35
     hrh: int = 0
     vrll: int = 0
     vrrl: int = 0
-    vrla: int = 0
-    vrra: int = 0
+    vrla: int = 45
+    vrra: int = 45
     ratio: int = 12
     head_only: bool = False
     display_hair: bool = False
@@ -2074,9 +2074,10 @@ if __name__ == "__main__":
     skin_image: Image = None
 
     if not head_only:
+        im = Image.open("C:/Users/Benno/Downloads/test2.png")
         im = asyncio.run(
             render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa,
-                           skin_image))
+                           skin_image=im))
     else:
         im = asyncio.run(render_3d_head(user, vr, hr, ratio, display_hair, aa, skin_image))
     im.show()
