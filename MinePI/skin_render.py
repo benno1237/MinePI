@@ -421,7 +421,7 @@ class Render:
         return im, im_cape
 
     async def get_render(self, skin, im_cape):
-        if not skin or im_cape:
+        if not skin or (im_cape and self.display_cape):
             skin, im_cape = await self.get_skin_mojang()
         hd_ratio = int(skin.size[0] / 64)
 
