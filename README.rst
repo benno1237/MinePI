@@ -3,16 +3,18 @@ MinePI
 
 .. image:: https://readthedocs.org/projects/minepi/badge/?version=latest
 
-$project is an all in one Minecraft skin render library written in Python.
+MinePI is an all in one Minecraft skin render library written in Python.
 
 Docs
 ----
 
+https://minepi.readthedocs.io/en/latest/
+
 Contribute
 ----------
 
-- Issue Tracker: github.com/$project/$project/issues
-- Source Code: github.com/$project/$project
+- Issue Tracker: github.com/benno1237/MinePI/issues
+- Source Code: github.com/benno1237/MinePI
 
 Support
 -------
