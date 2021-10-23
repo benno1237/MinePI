@@ -16,11 +16,15 @@ async def render_3d_skin(
         vrrl: int = 0,
         vrla: int = 0,
         vrra: int = 0,
+        vrc: int = 20,
         ratio: int = 12,
         display_hair: bool = True,
         display_second_layer: bool = True,
+        display_cape: bool = True,
         aa: bool = False,
-        skin_image: Image.Image = None
+        skin_image: Image.Image = None,
+        cape_image: Image.Image = None,
+        session: aiohttp.ClientSession = None,
 ):
     """Render a full body skin
 
@@ -45,13 +49,19 @@ async def render_3d_skin(
     ratio: int
         Resolution of the returned image
     display_hair: bool
-        Whether or not the second head layer should be displayed
+        Whether or not the second head layer is displayed
     display_second_layer: bool
-        Whether or not the second skin layer should be displayed
+        Whether or not the second skin layer is displayed
+    display_cape: bool
+        Whether or not the player's cape is shown
     aa: bool
         Antializing: smoothens the corners a bit
     skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
+    cape_image: PIL.Image.Image
+        minecraft cape image to prevent api calls
+    session: aiohttp.ClientSession
+        Session to use for requests
 
     Returns
     -------
@@ -63,9 +73,25 @@ async def render_3d_skin(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user=user, vr=vr, hr=hr, hrh=hrh, vrll=vrll, vrrl=vrrl, vrla=vrla, vrra=vrra, ratio=ratio,
-                    head_only=False, display_hair=display_hair, display_layers=display_second_layer, aa=aa)
-    im = await render.get_render(skin_image)
+    render = Render(
+        user=user,
+        vr=vr,
+        hr=hr,
+        hrh=hrh,
+        vrll=vrll,
+        vrrl=vrrl,
+        vrla=vrla,
+        vrra=vrra,
+        vrc=vrc,
+        ratio=ratio,
+        head_only=False,
+        display_hair=display_hair,
+        display_layers=display_second_layer,
+        display_cape=display_cape,
+        aa=aa,
+        session=session
+    )
+    im = await render.get_render(skin_image, cape_image)
     del render
     return im
 
@@ -77,7 +103,8 @@ async def render_3d_head(
         ratio: int = 12,
         display_hair: bool = True,
         aa: bool = False,
-        skin_image: Image.Image = None
+        skin_image: Image.Image = None,
+        session: aiohttp.ClientSession = None,
 ):
     """Render a player's head
 
@@ -93,12 +120,12 @@ async def render_3d_head(
         Resolution of the returned image
     display_hair: bool
         Whether or not the second head layer should be displayed
-    display_second_layer: bool
-        Whether or not the second skin layer should be displayed
     aa: bool
         Antializing: smoothens the corners a bit
     skin_image: PIL.Image.Image
         minecraft skin image to prevent api calls
+    session: aiohttp.ClientSession
+        Session to use for requests
 
     Returns
     -------
@@ -110,14 +137,30 @@ async def render_3d_head(
     ValueError
         Given username and/or uuid is invalid
     """
-    render = Render(user=user, vr=vr, hr=hr, hrh=0, vrll=0, vrrl=0, vrla=0, vrra=0, ratio=ratio, head_only=True,
-                    display_hair=display_hair, display_layers=False, aa=aa)
+    render = Render(
+        user=user,
+        vr=vr,
+        hr=hr,
+        hrh=0,
+        vrll=0,
+        vrrl=0,
+        vrla=0,
+        vrra=0,
+        vrc=0,
+        ratio=ratio,
+        head_only=True,
+        display_hair=display_hair,
+        display_layers=False,
+        display_cape=False,
+        aa=aa,
+        session=session
+    )
     im = await render.get_render(skin_image)
     del render
     return im
 
 
-async def get_skin(user: str):
+async def get_skin(user: str, session: aiohttp.ClientSession = None):
     """Get a player's raw skin image
     can be used in both :py:meth:`render_3d_head` and :py:meth:`render_3d_skin`
 
@@ -125,30 +168,35 @@ async def get_skin(user: str):
     ----------
     user: str
         Username or UUID
+    session: aiohttp.ClientSession
+        Session to use for requests
 
     Returns
     -------
-    PIL.Image.Image
+    im: PIL.Image.Image
         Raw skin image
+    im_cape: Optional[Pil.Image.Image]
+        Raw cape image if present
 
     Raises
     ------
     ValueError
         Username or UUID is invalid
     """
-    render = Render(user, 0, 0, 0, 0, 0, 0, 0, 100, False, False, False, False)
-    im = await render.get_skin_mojang()
-    del render
-    return im
+    render = Render(user, 0, 0, 0, 0, 0, 0, 0, 100, False, False, False, False, False, session=session)
+    im, im_cape = await render.get_skin_mojang()
+    return im, im_cape
 
 
-async def to_uuid(name: str):
+async def to_uuid(name: str, session: aiohttp.ClientSession = None):
     """Converts a username to a UUID by querying the mojang api
 
     Parameters
     ----------
     name: str
         Username you would like to convert
+    session: aiohttp.ClientSession
+        Session to use for requests
 
     Returns
     -------
@@ -160,17 +208,23 @@ async def to_uuid(name: str):
     ValueError
         Entered name is invalid
     """
-    async with aiohttp.ClientSession() as session:
-        async with session.get("https://api.mojang.com/users/profiles/minecraft/{}".format(name)) as resp:
-            uuid_dict = json.loads(await resp.text())
-            try:
-                uuid = uuid_dict["id"]
-                return uuid
-            except KeyError:
-                raise ValueError("Name {} is invalid".format(name))
+    close = False
+    if not session:
+        session = aiohttp.ClientSession()
+        close = True
 
+    async with session.get("https://api.mojang.com/users/profiles/minecraft/{}".format(name)) as resp:
+        uuid_dict = json.loads(await resp.text())
+        try:
+            uuid = uuid_dict["id"]
+            return uuid
+        except KeyError:
+            raise ValueError("Name {} is invalid".format(name))
 
-async def to_name(uuid: str, timestamp: float = None):
+    if close:
+        await session.close()
+
+async def to_name(uuid: str, timestamp: float = None, session: aiohttp.ClientSession = None):
     """Converts a UUID to a username by querying the mojang api
 
     Parameters
@@ -179,6 +233,8 @@ async def to_name(uuid: str, timestamp: float = None):
         uuid you would like to convert
     timestamp: float
         By passing this you can get old usernames
+    session: aiohttp.ClientSession
+        Session to use for requests
 
     Returns
     -------
@@ -190,34 +246,42 @@ async def to_name(uuid: str, timestamp: float = None):
     ValueError
         Entered uuid is invalid
     """
-    async with aiohttp.ClientSession() as session:
-        async with session.get("https://api.mojang.com/user/profiles/{}/names".format(uuid)) as resp:
-            name_dict = json.loads(await resp.text())
-            if resp.status == 200:
-                if timestamp == None:
-                    max_entry = len(name_dict) - 1
-                    name = name_dict[max_entry]["name"]
-                    return name
-                else:
-                    for i in range(len(name_dict) - 1, 0, -1):
-                        if timestamp > name_dict[i]["changedToAt"]:
-                            return name_dict[i]["name"]
-                    else:
-                        return name_dict[0]["name"]
-            elif resp.status == 400:
-                raise ValueError(name_dict["errorMessage"])
+    close = False
+    if not session:
+        session = aiohttp.ClientSession()
+        close = True
 
+    async with session.get("https://api.mojang.com/user/profiles/{}/names".format(uuid)) as resp:
+        name_dict = json.loads(await resp.text())
+        if resp.status == 200:
+            if timestamp == None:
+                max_entry = len(name_dict) - 1
+                name = name_dict[max_entry]["name"]
+                return name
+            else:
+                for i in range(len(name_dict) - 1, 0, -1):
+                    if timestamp > name_dict[i]["changedToAt"]:
+                        return name_dict[i]["name"]
+                else:
+                    return name_dict[0]["name"]
+        elif resp.status == 400:
+            raise ValueError(name_dict["errorMessage"])
+
+    if close:
+        await session.close()
 
 def is_not_existing(dic, key1=None, key2=None, key3=None):
+    if not isinstance(dic, dict):
+        print(dic)
     try:
-        if key1 == None:
-            resp = dic
-        if key2 == None:
-            resp = dic[key1]
-        elif key3 == None:
-            resp = dic[key1][key2]
+        if key1 is None:
+            dic
+        if key2 is None:
+            dic[key1]
+        elif key3 is None:
+            dic[key1][key2]
         else:
-            resp = dic[key1][key2][key3]
+            dic[key1][key2][key3]
         return False
     except KeyError:
         return True
@@ -239,8 +303,25 @@ def append_dict(dic, key1, key2, key3, value):
 
 
 class Render:
-    def __init__(self, user: str, vr: int, hr: int, hrh: int, vrll: int, vrrl: int, vrla: int, vrra: int, ratio: int,
-                 head_only: bool, display_hair: bool, display_layers: bool, aa: bool):
+    def __init__(
+            self,
+            user: str,
+            vr: int,
+            hr: int,
+            hrh: int,
+            vrll: int,
+            vrrl: int,
+            vrla: int,
+            vrra: int,
+            vrc: int,
+            ratio: int,
+            head_only: bool,
+            display_hair: bool,
+            display_layers: bool,
+            display_cape: bool,
+            aa: bool,
+            session: aiohttp.ClientSession,
+    ):
         self.is_new_skin = True
         self.vr = vr
         self.hr = hr
@@ -249,15 +330,22 @@ class Render:
         self.vrrl = vrrl
         self.vrla = vrla
         self.vrra = vrra
+        self.vrc = vrc
         self.head_only = head_only
         self.ratio = ratio
         self.display_hair = display_hair
+        self.display_cape = display_cape
         self.layers = display_layers
         self.user = user
         self.aa = aa
         self.rendered_image = None
 
         self.loop = asyncio.get_event_loop()
+        self.session = session
+        self.close = False
+        self.cube_points = []
+        self.polygons = {}
+        self.slim = False
 
         self.cos_a = None
         self.sin_a = None
@@ -270,10 +358,13 @@ class Render:
         self.max_y = 0
 
     async def get_skin_mojang(self):
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+            self.close = True
+
         if len(self.user) <= 16:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://api.mojang.com/users/profiles/minecraft/{self.user}") as response:
-                    resp = await response.text()
+            async with self.session.get(f"https://api.mojang.com/users/profiles/minecraft/{self.user}") as response:
+                resp = await response.text()
             if response.status != 200:
                 raise ValueError("Username is invalid")
             resp = json.loads(resp)
@@ -287,39 +378,60 @@ class Render:
                 if (ch < '0' or ch > '9') and (ch.lower() < 'a' or ch.lower() > 'f'):
                     raise ValueError("UUID is invalid")
             else:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                            f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}") as resp:
-                        resp_sessionserver = await resp.text()
-            if resp_sessionserver == "":
+                async with self.session.get(
+                    f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+                ) as resp:
+                    resp_sessionserver = await resp.text()
+            if not resp_sessionserver:
                 raise ValueError("UUID is invalid")
             resp_sessionserver = json.loads(resp_sessionserver)
-            skin_array = resp_sessionserver["properties"][0]["value"]
+
+            for p in resp_sessionserver["properties"]:
+                if p["name"] == "textures":
+                    skin_array = p["value"]
+                    break
+
             skin_array = json.loads((base64.b64decode(skin_array)))
             skin_url = skin_array["textures"]["SKIN"]["url"]
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(skin_url) as resp:
-                    im = Image.open(io.BytesIO(await resp.read()))
+            try:
+                self.slim = skin_array["textures"]["SKIN"]["metadata"]["model"]
+            except KeyError:
+                self.slim = False
+
+            try:
+                cape_url = skin_array["textures"]["CAPE"]["url"]
+            except KeyError:
+                cape_url = None
+                self.display_cape = False
+
+            """Skin request"""
+            async with self.session.get(skin_url) as resp:
+                im = Image.open(io.BytesIO(await resp.read()))
+
+            """Cape request"""
+            im_cape = None
+            if self.display_cape and cape_url:
+                async with self.session.get(cape_url) as resp:
+                    im_cape = Image.open(io.BytesIO(await resp.read()))
+
         else:
             raise ValueError("Invalid Username or UUID")
 
-        return im
+        return im, im_cape
 
-    async def get_render(self, skin):
-        if skin == None:
-            skin = await self.get_skin_mojang()
+    async def get_render(self, skin, im_cape):
+        if not skin or im_cape:
+            skin, im_cape = await self.get_skin_mojang()
         hd_ratio = int(skin.size[0] / 64)
 
         def render_skin(skin):
             if skin.height == 32:
                 skin = self.fix_old_skins(skin)
 
-            self.slim = self.is_slim_skin(skin)
-
             self.calculate_angles()
             self.determine_faces()
-            self.generate_polygons(hd_ratio, skin)
+            self.generate_polygons(hd_ratio, skin, im_cape)
             self.member_rotation(hd_ratio)
             self.create_project_plan()
 
@@ -332,11 +444,9 @@ class Render:
             skin
         )
 
+        if self.close:
+            await self.session.close()
         return im
-
-    def is_slim_skin(self, skin: Image) -> bool:
-        c = skin.getpixel((55, 20))
-        return not c[3]
 
     def fix_old_skins(self, skin: Image):
         # resize the image to 64/64px
@@ -386,6 +496,8 @@ class Render:
         self.body_angles["torso"] = (cos(0), sin(0), cos(0), sin(0))
         self.body_angles["torso_layer"] = (cos(0), sin(0), cos(0), sin(0))
 
+        self.body_angles["cape"] = (cos(-0.15), sin(-0.15), cos(0), sin(0))
+
         alpha_head = 0
         beta_head = radians(self.hrh)
         self.body_angles["head"] = (cos(alpha_head), sin(alpha_head), cos(beta_head), sin(beta_head))
@@ -413,20 +525,21 @@ class Render:
 
     def determine_faces(self):
         self.visible_faces = {
-            "head": {"front": {}, "back": {}},
-            "torso": {"front": {}, "back": {}},
-            "torso_layer": {"front": {}, "back": {}},
-            "r_arm": {"front": {}, "back": {}},
-            "r_arm_layer": {"front": {}, "back": {}},
-            "l_arm": {"front": {}, "back": {}},
-            "l_arm_layer": {"front": {}, "back": {}},
-            "r_leg": {"front": {}, "back": {}},
-            "r_leg_layer": {"front": {}, "back": {}},
-            "l_leg": {"front": {}, "back": {}},
-            "l_leg_layer": {"front": {}, "back": {}}
+            "head": {"front": [], "back": {}},
+            "torso": {"front": [], "back": {}},
+            "torso_layer": {"front": [], "back": {}},
+            "r_arm": {"front": [], "back": {}},
+            "r_arm_layer": {"front": [], "back": {}},
+            "l_arm": {"front": [], "back": {}},
+            "l_arm_layer": {"front": [], "back": {}},
+            "r_leg": {"front": [], "back": {}},
+            "r_leg_layer": {"front": [], "back": {}},
+            "l_leg": {"front": [], "back": {}},
+            "l_leg_layer": {"front": [], "back": {}},
+            "cape": {"front": [], "back": {}}
         }
 
-        self.all_faces = ["back", "right", "top", "front", "left", "bottom"]
+        all_faces = ["back", "right", "top", "front", "left", "bottom"]
 
         for k, v in self.visible_faces.items():
             cube_max_depth_faces = None
@@ -437,90 +550,137 @@ class Render:
                                           self.body_angles[k][2], self.body_angles[k][3])
                 cube_point[0].project()
 
-                if (cube_max_depth_faces == None) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
+                if (not cube_max_depth_faces) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
                     cube_max_depth_faces = cube_point
 
             v["back"] = cube_max_depth_faces[1]
-            v["front"] = [face for face in self.all_faces if face not in v["back"]]
+            v["front"] = [face for face in all_faces if face not in v["back"]]
 
         self.set_cube_points()
         cube_max_depth_faces = None
         for cube_point in self.cube_points:
             cube_point[0].project()
 
-            if (cube_max_depth_faces == None) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
+            if (not cube_max_depth_faces) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
                 cube_max_depth_faces = cube_point
 
             self.back_faces = cube_max_depth_faces[1]
-            self.front_faces = [face for face in self.all_faces if face not in self.back_faces]
+            self.front_faces = [face for face in all_faces if face not in self.back_faces]
 
     def set_cube_points(self):
-        self.cube_points = []
-        self.cube_points.append((Point(self, {
-            "x": 0,
-            "y": 0,
-            "z": 0
-        }),
-                                 ["back", "right", "top"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 0,
+                        "y": 0,
+                        "z": 0
+                    }
+                ),
+                ["back", "right", "top"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 0,
-            "y": 0,
-            "z": 1
-        }),
-                                 ["front", "right", "top"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 0,
+                        "y": 0,
+                        "z": 1
+                    }
+                ),
+                ["front", "right", "top"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 0,
-            "y": 1,
-            "z": 0
-        }),
-                                 ["back", "right", "bottom"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 0,
+                        "y": 1,
+                        "z": 0
+                    }
+                ),
+                ["back", "right", "bottom"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 0,
-            "y": 1,
-            "z": 1
-        }),
-                                 ["front", "right", "bottom"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 0,
+                        "y": 1,
+                        "z": 1
+                    }
+                ),
+                ["front", "right", "bottom"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 1,
-            "y": 0,
-            "z": 0
-        }),
-                                 ["back", "left", "top"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 1,
+                        "y": 0,
+                        "z": 0
+                    }
+                ),
+                ["back", "left", "top"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 1,
-            "y": 0,
-            "z": 1
-        }),
-                                 ["front", "left", "top"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 1,
+                        "y": 0,
+                        "z": 1
+                    }
+                ),
+                ["front", "left", "top"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 1,
-            "y": 1,
-            "z": 0
-        }),
-                                 ["back", "left", "bottom"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 1,
+                        "y": 1,
+                        "z": 0
+                    }
+                ),
+                ["back", "left", "bottom"]
+            )
+        )
 
-        self.cube_points.append((Point(self, {
-            "x": 1,
-            "y": 1,
-            "z": 1
-        }),
-                                 ["front", "left", "bottom"]
-                                 ))
+        self.cube_points.append(
+            (
+                Point(
+                    self,
+                    {
+                        "x": 1,
+                        "y": 1,
+                        "z": 1
+                    }
+                ),
+                ["front", "left", "bottom"]
+            )
+        )
 
-    def generate_polygons(self, hd_ratio, skin):
+    def generate_polygons(self, hd_ratio, skin, im_cape):
         self.polygons = {
             "helmet": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
             "head": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
@@ -533,7 +693,8 @@ class Render:
             "r_leg": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
             "r_leg_layer": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
             "l_leg": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
-            "l_leg_layer": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []}
+            "l_leg_layer": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []},
+            "cape": {"front": [], "back": [], "top": [], "bottom": [], "right": [], "left": []}
         }
 
         """Head"""
@@ -940,6 +1101,98 @@ class Render:
                                     volume_points[i + 1][12 * hd_ratio][k + 1],
                                     volume_points[i][12 * hd_ratio][k + 1]],
                                     color))
+
+            """Cape"""
+            if self.display_cape:
+                volume_points = {}
+                for i in range(0, 11 * hd_ratio):
+                    for j in range(0, 17 * hd_ratio):
+                        volume_points = append_dict(volume_points, i, j, 0,
+                                                    Point(self, {"x": i - 1, "y": j + 8 * hd_ratio, "z": -1}))
+                        volume_points = append_dict(volume_points, i, j, 1 * hd_ratio,
+                                                    Point(self, {"x": i - 1, "y": j + 8 * hd_ratio, "z": 0 * hd_ratio}))
+
+                for j in range(0, 17 * hd_ratio):
+                    for k in range(0, 2 * hd_ratio):
+                        volume_points = append_dict(volume_points, 0, j, k,
+                                                    Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                        volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
+                                                    Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+
+                for i in range(0, 11 * hd_ratio):
+                    for k in range(0, 2 * hd_ratio):
+                        volume_points = append_dict(volume_points, i, 0, k,
+                                                    Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                        volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
+                                                    Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+
+                if "back" in self.visible_faces["cape"]["front"]:
+                    for i in range(0, 10 * hd_ratio):
+                        for j in range(0, 16 * hd_ratio):
+                            color = im_cape.getpixel(((11 * hd_ratio - 1) - i, 1 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["cape"]["back"].append(Polygon([
+                                    volume_points[i][j][0],
+                                    volume_points[i + 1][j][0],
+                                    volume_points[i + 1][j + 1][0],
+                                    volume_points[i][j + 1][0]],
+                                    color))
+
+                if "front" in self.visible_faces["cape"]["front"]:
+                    for i in range(0, 10 * hd_ratio):
+                        for j in range(0, 16 * hd_ratio):
+                            color = im_cape.getpixel((12 * hd_ratio + i, 1 * hd_ratio + j))
+                            if color[3] != 0:
+                                self.polygons["cape"]["front"].append(Polygon([
+                                    volume_points[i][j][1 * hd_ratio],
+                                    volume_points[i + 1][j][1 * hd_ratio],
+                                    volume_points[i + 1][j + 1][1 * hd_ratio],
+                                    volume_points[i][j + 1][1 * hd_ratio]],
+                                    color))
+
+                if "right" in self.visible_faces["cape"]["front"]:
+                    for j in range(0, 16 * hd_ratio):
+                        color = im_cape.getpixel((12 * hd_ratio, 1 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["cape"]["right"].append(Polygon([
+                                volume_points[0][j][0],
+                                volume_points[0][j][1],
+                                volume_points[0][j + 1][1],
+                                volume_points[0][j + 1][0]],
+                                color))
+
+                if "left" in self.visible_faces["cape"]["front"]:
+                    for j in range(0, 16 * hd_ratio):
+                        color = im_cape.getpixel((1 * hd_ratio, 1 * hd_ratio + j))
+                        if color[3] != 0:
+                            self.polygons["cape"]["left"].append(Polygon([
+                                volume_points[10 * hd_ratio][j][0],
+                                volume_points[10 * hd_ratio][j][1],
+                                volume_points[10 * hd_ratio][j + 1][1],
+                                volume_points[10 * hd_ratio][j + 1][0]],
+                                color))
+
+                if "top" in self.visible_faces["cape"]["front"]:
+                    for i in range(0, 10 * hd_ratio):
+                        color = im_cape.getpixel((1 + i, 0))
+                        if color[3] != 0:
+                            self.polygons["cape"]["top"].append(Polygon([
+                                volume_points[i][0][0],
+                                volume_points[i + 1][0][0],
+                                volume_points[i + 1][0][1],
+                                volume_points[i][0][1]],
+                                color))
+
+                if "bottom" in self.visible_faces["cape"]["front"]:
+                    for i in range(0, 10 * hd_ratio):
+                        color = im_cape.getpixel((11 * hd_ratio + i, 0))
+                        if color[3] != 0:
+                            self.polygons["cape"]["bottom"].append(Polygon([
+                                volume_points[i][16 * hd_ratio][0],
+                                volume_points[i + 1][16 * hd_ratio][0],
+                                volume_points[i + 1][16 * hd_ratio][1],
+                                volume_points[i][16 * hd_ratio][1]],
+                                color))
 
             start = 1 if self.slim else 0
             """Right arm"""
@@ -1761,64 +2014,49 @@ class Render:
     def member_rotation(self, hd_ratio):
         for face in self.polygons["head"]:
             for poly in self.polygons["head"][face]:
-                poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0],
-                                 self.body_angles["head"][1], self.body_angles["head"][2], self.body_angles["head"][3])
+                poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["head"])
 
         if self.display_hair:
             for face in self.polygons["helmet"]:
                 for poly in self.polygons["helmet"][face]:
-                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, self.body_angles["head"][0],
-                                     self.body_angles["head"][1], self.body_angles["head"][2],
-                                     self.body_angles["head"][3])
+                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["head"])
 
         if not self.head_only:
+            for face in self.polygons["cape"]:
+                for poly in self.polygons["cape"][face]:
+                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["cape"])
+
             for face in self.polygons["r_arm"]:
                 for poly in self.polygons["r_arm"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm"][0],
-                                     self.body_angles["r_arm"][1], self.body_angles["r_arm"][2],
-                                     self.body_angles["r_arm"][3])
+                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_arm"])
 
             for face in self.polygons["r_arm_layer"]:
                 for poly in self.polygons["r_arm_layer"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["r_arm_layer"][0],
-                                     self.body_angles["r_arm_layer"][1], self.body_angles["r_arm_layer"][2],
-                                     self.body_angles["r_arm_layer"][3])
+                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_arm_layer"])
 
             for face in self.polygons["l_arm"]:
                 for poly in self.polygons["l_arm"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm"][0],
-                                     self.body_angles["l_arm"][1], self.body_angles["l_arm"][2],
-                                     self.body_angles["l_arm"][3])
+                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_arm"])
 
             for face in self.polygons["l_arm_layer"]:
                 for poly in self.polygons["l_arm_layer"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, self.body_angles["l_arm_layer"][0],
-                                     self.body_angles["l_arm_layer"][1], self.body_angles["l_arm_layer"][2],
-                                     self.body_angles["l_arm_layer"][3])
+                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_arm_layer"])
 
             for face in self.polygons["r_leg"]:
                 for poly in self.polygons["r_leg"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg"][0],
-                                     self.body_angles["r_leg"][1], self.body_angles["r_leg"][2],
-                                     self.body_angles["r_leg"][3])
+                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_leg"])
 
             for face in self.polygons["r_leg_layer"]:
                 for poly in self.polygons["r_leg_layer"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["r_leg_layer"][0],
-                                     self.body_angles["r_leg_layer"][1], self.body_angles["r_leg_layer"][2],
-                                     self.body_angles["r_leg_layer"][3])
+                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_leg_layer"])
 
             for face in self.polygons["l_leg"]:
                 for poly in self.polygons["l_leg"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg"][0],
-                                     self.body_angles["l_leg"][1], self.body_angles["l_leg"][2],
-                                     self.body_angles["l_leg"][3])
+                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_leg"])
 
             for face in self.polygons["l_leg_layer"]:
                 for poly in self.polygons["l_leg_layer"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, self.body_angles["l_leg_layer"][0],
-                                     self.body_angles["l_leg_layer"][1], self.body_angles["l_leg_layer"][2],
-                                     self.body_angles["l_leg_layer"][3])
+                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_leg_layer"])
 
     def create_project_plan(self):
         for piece in self.polygons:
@@ -1858,6 +2096,9 @@ class Render:
 
     def get_display_order(self):
         display_order = []
+        if "front" in self.front_faces:
+            display_order.append({"cape": self.visible_faces["cape"]["front"]})
+
         if "top" in self.front_faces:
             if "right" in self.front_faces:
                 display_order.append({"l_leg_layer": self.back_faces})
@@ -1900,6 +2141,9 @@ class Render:
                 display_order.append({"l_arm": self.visible_faces["l_arm"]["front"]})
                 display_order.append({"l_arm_layer": self.visible_faces["l_arm"]["front"]})
 
+            if "back" in self.front_faces:
+                display_order.append({"cape": self.visible_faces["cape"]["front"]})
+
             display_order.append({"helmet": self.back_faces})
             display_order.append({"head": self.visible_faces["head"]["front"]})
             display_order.append({"helmet": self.visible_faces["head"]["front"]})
@@ -1948,10 +2192,13 @@ class Render:
                 display_order.append({"l_leg": self.visible_faces["l_leg"]["front"]})
                 display_order.append({"l_leg_layer": self.visible_faces["l_leg"]["front"]})
 
+            if "back" in self.front_faces:
+                display_order.append({"cape": self.visible_faces["cape"]["front"]})
+
         return display_order
 
 
-class Point():
+class Point:
     def __init__(self, super_cls, origin_coords, dest_coords={}, is_projected=False, is_pre_projected=False):
         self.dest_coords = dest_coords
         self.is_projected = is_projected
@@ -1959,9 +2206,9 @@ class Point():
         self.super = super_cls
 
         if (isinstance(origin_coords, dict)) and (len(origin_coords.keys()) == 3):
-            x = origin_coords["x"] if is_not_existing(origin_coords, "x") == False else 0
-            y = origin_coords["y"] if is_not_existing(origin_coords, "y") == False else 0
-            z = origin_coords["z"] if is_not_existing(origin_coords, "z") == False else 0
+            x = origin_coords["x"] if not is_not_existing(origin_coords, "x") else 0
+            y = origin_coords["y"] if not is_not_existing(origin_coords, "y") else 0
+            z = origin_coords["z"] if not is_not_existing(origin_coords, "z") else 0
         else:
             x, y, z = 0, 0, 0
 
@@ -2002,7 +2249,7 @@ class Point():
         return self.dest_coords
 
 
-class Polygon():
+class Polygon:
     def __init__(self, dots, color, is_projected=False, face="w", face_depth=0):
         self.face = face
         self.is_projected = is_projected
@@ -2035,7 +2282,7 @@ class Polygon():
             coord = dot.dest_coords
             if not coord_x:
                 coord_x = coord["x"]
-            if  not coord_y:
+            if not coord_y:
                 coord_y = coord["y"]
             if coord_x != coord["x"]:
                 same_plan_x = False
@@ -2058,26 +2305,44 @@ class Polygon():
 
 
 if __name__ == "__main__":
-    user: str = "Fixator10"
+    user: str = "Polsulpicien"
     vr: int = -35
-    hr: int = 35
+    hr: int = 90
     hrh: int = 0
     vrll: int = 0
     vrrl: int = 0
-    vrla: int = 45
-    vrra: int = 45
+    vrla: int = 0
+    vrra: int = 0
+    vrc: int = 70
     ratio: int = 12
     head_only: bool = False
     display_hair: bool = False
     display_second_layer: bool = True
+    display_cape = True
     aa: bool = False
     skin_image: Image = None
+    cape_image: Image = None
 
     if not head_only:
-        im = Image.open("C:/Users/Benno/Downloads/test2.png")
         im = asyncio.run(
-            render_3d_skin(user, vr, hr, hrh, vrll, vrrl, vrla, vrra, ratio, display_hair, display_second_layer, aa,
-                           skin_image=im))
+            render_3d_skin(
+                user=user,
+                vr=vr,
+                hr=hr,
+                hrh=hrh,
+                vrll=vrll,
+                vrrl=vrrl,
+                vrla=vrla,
+                vrra=vrra,
+                vrc=vrc,
+                ratio=ratio,
+                display_hair=display_hair,
+                display_second_layer=display_second_layer,
+                display_cape=display_cape,
+                aa=aa,
+                skin_image=skin_image,
+                cape_image=cape_image
+            ))
     else:
         im = asyncio.run(render_3d_head(user, vr, hr, ratio, display_hair, aa, skin_image))
     im.show()
