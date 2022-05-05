@@ -10,6 +10,50 @@ from PIL import Image, ImageOps
 from .skin_render import Render
 
 
+async def get_players_by_name(names: list, session: aiohttp.ClientSession = None):
+    """Useful helper function to get multiple :class:`Player` objects
+
+    Only does one API call for the entire list instead of one per player
+    This is recommended to be used if you have a list of usernames
+
+    Parameters
+    ----------
+    names: list
+        A list of minecraft usernames
+    session: aiohttp.ClientSession
+        Alternative ClientSession for the request
+
+    Returns
+    -------
+    list
+        A list of :class:`Player` objects
+
+    Raises
+    ------
+    ValueError
+        An empty list was passed
+    """
+    if not names:
+        raise ValueError("Pass at least one minecraft username")
+
+    if session is None:
+        session = aiohttp.ClientSession()
+        close = True
+    else:
+        close = False
+
+    players = []
+    async with session.post("https://api.mojang.com/profiles/minecraft", json=names) as resp:
+        if resp.status == 200:
+            for entry in await resp.json():
+                players.append(Player(uuid=entry["id"], session=session if not close else None))
+
+    if close:
+        await session.close()
+
+    return players
+
+
 class Player:
     """Class representing a minecraft player
     This has to be created before a skin can be rendered
@@ -24,6 +68,8 @@ class Player:
         Raw skin image of the player (64x64px)
     raw_cape: Image.Image
         Raw cape image of the player (64x64px)
+    session: aiohttp.ClientSession
+        ClientSession to use for requests
     """
     def __init__(
             self,
@@ -31,6 +77,7 @@ class Player:
             name: str = None,
             raw_skin: Image.Image = None,
             raw_cape: Image.Image = None,
+            session: aiohttp.ClientSession = None
     ):
         self._uuid: Optional[str] = uuid
         self._username: Optional[str] = name
@@ -43,7 +90,7 @@ class Player:
         self._raw_skin_url: Optional[str] = None
         self._raw_cape_url: Optional[str] = None
 
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: Optional[aiohttp.ClientSession] = session
         self._close_session: bool = False
 
         self._ready: asyncio.Event = asyncio.Event()
@@ -53,8 +100,8 @@ class Player:
             if len(self._uuid) != 32:
                 raise ValueError("UUID seems to be invalid.")
 
-    def __str__(self):
-        return f"Player<UUID={self.uuid}, name={self.name}, slim={self.is_slim}>"
+    def __repr__(self):
+        return f"<Player (UUID={self.uuid}) (name={self.name}) (slim={self.is_slim})>"
 
     @property
     def uuid(self):
@@ -111,6 +158,15 @@ class Player:
 
         This function fetches skin and cape from the mojang API and caches them
         Once this function has finished, renders of the skin can be created
+
+        Warning
+        -------
+        This function does two to four API calls to the mojang API:
+            -> (1.) Obtain the players UUID by name (Only if no UUID is given)\n
+            -> 2. Get the players profile\n
+            -> 3. Get the players skin\n
+            -> (4.) Get the players cape (Only if the player actually has a cape)\n
+        Rate limits of the API are unknown but expected to be somewhere close to 6000 requests per 10 minutes.
         """
         if self._uuid is None and self._username is None:
             raise ValueError

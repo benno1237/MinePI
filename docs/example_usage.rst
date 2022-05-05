@@ -2,16 +2,16 @@
 Example Usage
 *************
 
-.. code-block:: python
+~~~~~
+Basic
+~~~~~
 
-    from minepi import Player
-    import asyncio
+.. literalinclude:: ../examples/player.py
+    :language: python
 
-    async def main():
-        player = Player(name="sucr_kolli")
-        await player.initialize()
+~~~~~~~~
+Advanced
+~~~~~~~~
 
-        await player.render_skin()
-        player.skin.show()
-
-    asyncio.run(main())
+.. literalinclude:: ../examples/multiple_players.py
+    :language: python
