@@ -4,14 +4,14 @@ Example Usage
 
 .. code-block:: python
 
-    import MinePI
+    from minepi import Player
     import asyncio
 
     async def main():
-        #Render a full body skin
-        im = await MinePI.render_3d_skin("Herobrine")
+        player = Player(name="sucr_kolli")
+        await player.initialize()
 
-        #Render a head only skin
-        im = await MinePI.render_3d_head("Herobrine")
+        await player.render_skin()
+        player.skin.show()
 
     asyncio.run(main())

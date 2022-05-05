@@ -2,5 +2,6 @@
 API Reference
 *************
 
-.. automodule:: MinePI.skin_render
+.. autoclass:: minepi.Player
     :members:
+

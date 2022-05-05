@@ -19,11 +19,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'MinePI'
-copyright = '2021, benno1237'
+copyright = '2022, benno1237'
 author = 'benno1237'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.0'
+release = '0.5.0a1'
 
 
 # -- General configuration ---------------------------------------------------
@@ -38,6 +38,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx-prompt"
 ]
+
+autodoc_member_order = "bysource"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
