@@ -14,8 +14,14 @@ setup(
     install_requires=[
         "aiohttp",
         "Pillow",
-        "sphinx-prompt"
     ],
+    extras_require={
+        "docs": [
+            "sphinx",
+            "sphinx-rtd-theme",
+            "sphinx-prompt"
+        ]
+    },
     classifiers=[
     'Development Status :: 3 - Alpha',     
     'Intended Audience :: Developers',      
