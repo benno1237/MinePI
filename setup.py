@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name="MinePI",
-    packages=["MinePI"],
+    packages=["minepi"],
     version="0.5.0a1",
     license="MIT",
     description="Minecraft utility library.",
