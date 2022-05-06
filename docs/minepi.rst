@@ -6,3 +6,5 @@ API Reference
 .. autoclass:: minepi.Player
     :members:
 
+.. autoclass:: minepi.Skin
+    :members:

@@ -67,7 +67,7 @@ class Player:
     raw_skin: Image.Image
         Raw skin image of the player (64x64px)
     raw_cape: Image.Image
-        Raw cape image of the player (64x64px)
+        Raw cape image of the player (64x32px)
     session: aiohttp.ClientSession
         ClientSession to use for requests
     """
@@ -81,14 +81,10 @@ class Player:
     ):
         self._uuid: Optional[str] = uuid
         self._username: Optional[str] = name
-        self._slim: Optional[bool] = None
 
-        self._skin: Optional[Image.Image] = None
-        self._head: Optional[Image.Image] = None
+        self._skin: Optional[Skin] = None
         self._raw_skin: Optional[Image.Image] = raw_skin
         self._raw_cape: Optional[Image.Image] = raw_cape
-        self._raw_skin_url: Optional[str] = None
-        self._raw_cape_url: Optional[str] = None
 
         self._session: Optional[aiohttp.ClientSession] = session
         self._close_session: bool = False
@@ -101,7 +97,7 @@ class Player:
                 raise ValueError("UUID seems to be invalid.")
 
     def __repr__(self):
-        return f"<Player (UUID={self.uuid}) (name={self.name}) (slim={self.is_slim})>"
+        return f"<Player (UUID={self.uuid}) (name={self.name}) (skin={self._skin})>"
 
     @property
     def uuid(self):
@@ -115,43 +111,18 @@ class Player:
 
     @property
     def skin(self):
-        """The last rendered full skin"""
+        """The players :class:`Skin`"""
         return self._skin
 
-    @property
-    def head(self):
-        """The last rendered head"""
-        return self._head
+    def set_skin(self, skin: "Skin"):
+        """Manually overwrite/set this players skin
 
-    @property
-    def raw_skin(self):
-        """Raw skin image returned from the mojang api"""
-        return self._raw_skin
-
-    @property
-    def raw_skin_url(self):
-        """Raw skin url to query the skin from the mojang api"""
-        return self._raw_skin_url
-
-    @property
-    def raw_cape(self):
-        """Raw cape image returned from the mojang api"""
-        return self._raw_cape
-
-    @property
-    def raw_cape_url(self):
-        """Raw cape url to query the cape from the mojang api"""
-        return self._raw_cape_url
-
-    @property
-    def has_cape(self):
-        """Whether the player has  a cape"""
-        return bool(self._raw_cape_url)
-
-    @property
-    def is_slim(self):
-        """Whether the players skin is slim or classic"""
-        return self._slim
+        Parameters
+        ----------
+        skin: Skin
+            The new skin
+        """
+        self._skin = skin
 
     async def initialize(self):
         """Initializes the player class
@@ -200,23 +171,64 @@ class Player:
                     else:
                         raise NotImplementedError
 
-        self._raw_skin_url = textures["SKIN"]["url"]
-        self._raw_cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
+        _raw_skin_url = textures["SKIN"]["url"]
+        _raw_cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
 
         if textures:
             if not self._raw_skin:
-                try:
-                    self._slim = True if textures["SKIN"]["metadata"]["model"] == "slim" else False
-                except KeyError:
-                    self._slim = False
-
-                async with self._session.get(self._raw_skin_url) as resp:
+                async with self._session.get(_raw_skin_url) as resp:
                     self._raw_skin = Image.open(BytesIO(await resp.read()))
 
             if not self._raw_cape:
-                if self._raw_cape_url is not None:
-                    async with self._session.get(self._raw_cape_url) as resp:
+                if _raw_cape_url is not None:
+                    async with self._session.get(_raw_cape_url) as resp:
                         self._raw_cape = Image.open(BytesIO(await resp.read()))
+                else:
+                    self._raw_cape = None
+
+        self._skin = Skin(
+            raw_skin=self._raw_skin, raw_skin_url=_raw_skin_url, raw_cape=self._raw_cape, raw_cape_url=_raw_cape_url
+        )
+
+        if self._close_session:
+            await self._session.close()
+
+        self._ready.set()
+
+    async def wait_for_fully_constructed(self):
+        """Returns as soon as the initialize function finished
+
+        Waiting for this guarantees that the skin has been fetched from the api"""
+        try:
+            await asyncio.wait_for(self._ready.wait(), timeout=60)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError
+
+
+class Skin:
+    """Class representing a players skin
+
+    Tip
+    ----
+    It's best practice to save the players skin to a database using :py:func:`encodeb64` and then
+    reinitialize this class using :py:func:`decodeb64`. This way no API call is needed.\n
+    Alternatively you can manually instantiate by passing a raw skin image.
+    """
+
+    def __init__(
+            self,
+            raw_skin,
+            raw_skin_url=None,
+            raw_cape=None,
+            raw_cape_url=None,
+    ):
+        self._raw_skin: Image.Image = raw_skin
+        self._raw_skin_url: Optional[str] = raw_skin_url
+        self._raw_cape: Optional[Image.Image] = raw_cape
+        self._raw_cape_url: Optional[str] = raw_cape_url
+
+        self._skin: Optional[Image.Image] = None
+        self._head: Optional[Image.Image] = None
 
         if self._raw_skin.height == 32: #old skin format
             new_skin_im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
@@ -235,26 +247,125 @@ class Player:
 
             self._raw_skin = new_skin_im
 
-        #slim skin detection for passed skins
-        if self._slim is None: #skin has been passed
-            if self._raw_skin.getpixel((46, 52))[3] == 0:
-                self._slim = True
-            else:
-                self._slim = False
+    def __repr__(self):
+        return f"<Skin (slim={self.is_slim}) (has_cape={self.has_cape})"
 
-        if self._close_session:
-            await self._session.close()
+    @property
+    def skin(self):
+        """The last skin which has been rendered using :py:func:`render_skin`"""
+        return self._skin
 
-        self._ready.set()
+    @property
+    def head(self):
+        """The last head which has been rendered using :py:func:`render_head`"""
+        return self._head
 
-    async def wait_for_fully_constructed(self):
-        """Returns as soon as the initialize function finished
+    @property
+    def raw_skin(self):
+        """The players raw skin image"""
+        return self._raw_skin
 
-        Waiting for this guarantees that the skin has been fetched from the api"""
-        try:
-            await asyncio.wait_for(self._ready.wait(), timeout=60)
-        except asyncio.TimeoutError:
-            raise asyncio.TimeoutError
+    @property
+    def raw_skin_url(self):
+        """The players skins url. Returns None if the skin has been manually passed"""
+        return self._raw_skin_url
+
+    @property
+    def raw_cape(self):
+        """The players raw cape image"""
+        return self._raw_cape
+
+    @property
+    def raw_cape_url(self):
+        """The players capes url. Returns None if the player doesn't have a cape or the cape has been manually passed"""
+        return self._raw_cape_url
+
+    @property
+    def has_cape(self):
+        """Whether the player has a cape or not"""
+        return bool(self._raw_cape)
+
+    @property
+    def is_slim(self):
+        """Whether the skin is slim (Alex type) or classic (Steve type)
+
+        Only difference being the width of the arms (3px - 4px)"""
+        return not bool(self._raw_skin.getpixel((46, 52))[3] == 0)
+
+    def set_cape(self, cape: Image.Image):
+        """Change the players cape
+
+        Parameters
+        ----------
+        cape: Image
+            The new cape image (64x32px)
+
+        Raises
+        ------
+        ValueError
+            Cape image has the wrong format or size
+        """
+        if cape.width != 64 or cape.height != 32:
+            raise ValueError("Cape image must be 64x32 pixels")
+
+        self._raw_cape = cape
+
+    def encodeb64(self):
+        """Base64 encodes the players skin and cape
+
+        This allows for better caching and persistent storage in a database
+        A :class:`Skin` class can then be recreated using :py:func:`decodeb64`
+
+        Returns
+        -------
+        str
+            The players skin and cape in format {raw_skin}-{raw_cape}"""
+        with BytesIO() as buffered:
+            self._raw_skin.save(buffered, format="PNG")
+            buffered.seek(0)
+            im_skin = buffered.getvalue()
+        if self._raw_cape:
+            with BytesIO() as buffered:
+                self._raw_cape.save(buffered, format="PNG")
+                buffered.seek(0)
+                im_cape = buffered.get_value()
+        else:
+            im_cape = None
+
+        return f"{base64.b64encode(im_skin)}-{base64.b64encode(im_cape) if im_cape else ''}"
+
+    @classmethod
+    def decodeb64(cls, b64: str):
+        """Create an instance of this class from a saved b64 string
+
+        Parameters
+        ----------
+        b64: str
+            The base64 encoded raw_skin image or raw_skin and raw_cape separated with a "-".
+            Can be obtained from :py:func:`encodeb64`
+
+        Returns
+        -------
+        :class:`Skin`
+        """
+        if "-" in b64:
+            skin, cape = b64.split("-")
+        else:
+            skin = b64
+            cape = None
+
+        im_str = base64.b64decode(skin)
+        buffered = BytesIO(im_str)
+        im_skin = Image.open(buffered)
+
+        if cape:
+            im_str = base64.b64decode(cape)
+            buffered = BytesIO(im_str)
+            im_cape = Image.open(buffered)
+        else:
+            im_cape = None
+
+        return cls(raw_skin=im_skin, raw_cape=im_cape)
 
     async def render_skin(
             self,
@@ -298,14 +409,13 @@ class Player:
         display_cape: bool
             Whether or not the player's cape is shown
         aa: bool
-            Antializing: smoothens the corners a bit
+            Antialiasing: smoothens the corners a bit
 
         Returns
         -------
         PIL.Image.Image
             The rendered skin
         """
-        await self.wait_for_fully_constructed()
         render = Render(
             player=self,
             vr=vr,
@@ -348,14 +458,13 @@ class Player:
         display_hair: bool
             Whether or not the second head layer should be displayed
         aa: bool
-            Antializing: smoothens the corners a bit
+            Antialiasing: smoothens the corners a bit
 
         Returns
         -------
         PIL.Image.Image
             The rendered head
         """
-        await self.wait_for_fully_constructed()
         render = Render(
             player=self,
             vr=vr,
