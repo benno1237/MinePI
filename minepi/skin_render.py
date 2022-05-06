@@ -1,15 +1,10 @@
-import typing
 from math import radians, sin, cos
-import aiohttp
-import json
-import base64
-import io
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw
 import asyncio
 import typing
 
 if typing.TYPE_CHECKING:
-    from . import Player
+    from . import Skin
 
 def is_not_existing(dic, key1=None, key2=None, key3=None):
     if not isinstance(dic, dict):
@@ -46,7 +41,7 @@ def append_dict(dic, key1, key2, key3, value):
 class Render:
     def __init__(
             self,
-            player: "Player",
+            player: "Skin",
             vr: int = 0,
             hr: int = 0,
             hrh: int = 0,
@@ -1721,7 +1716,7 @@ class Render:
                         poly.add_png_polygon(draw, self.min_x, self.min_y, ratio)
 
         if self.aa:
-            image = image.resize((int(real_width), int(real_height)), resample=Image.ANTIALIAS)
+            image = image.resize((int(real_width), int(real_height)), resample=Image.LANCZOS)
         return image
 
     def get_display_order(self):

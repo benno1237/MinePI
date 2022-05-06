@@ -152,7 +152,7 @@ class Player:
             ) as resp:
                 if resp.status == 200:
                     resp_dict = await resp.json()
-                    self._uuid = resp_dict["uuid"].replace("-", "")
+                    self._uuid = resp_dict["id"].replace("-", "")
 
         if self._uuid is not None:
             async with self._session.get(
@@ -248,7 +248,7 @@ class Skin:
             self._raw_skin = new_skin_im
 
     def __repr__(self):
-        return f"<Skin (slim={self.is_slim}) (has_cape={self.has_cape})"
+        return f"<Skin (slim={self.is_slim}) (has_cape={self.has_cape})>"
 
     @property
     def skin(self):
@@ -290,7 +290,7 @@ class Skin:
         """Whether the skin is slim (Alex type) or classic (Steve type)
 
         Only difference being the width of the arms (3px - 4px)"""
-        return not bool(self._raw_skin.getpixel((46, 52))[3] == 0)
+        return not bool(self._raw_skin.getpixel((46, 52))[3])
 
     def set_cape(self, cape: Image.Image):
         """Change the players cape
