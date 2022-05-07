@@ -1,13 +1,88 @@
 import asyncio
-import aiohttp
 import base64
 import json
+from io import BytesIO
 from typing import Optional
 
-from io import BytesIO
+import aiohttp
 from PIL import Image, ImageOps
 
 from .skin_render import Render
+
+
+async def _uuid_to_name(uuid: str, session: aiohttp.ClientSession) -> Optional[str]:
+    async with session.get(
+        f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+    ) as resp:
+        if resp.status == 200:
+            resp_dict = await resp.json()
+            return resp_dict["name"]
+    
+    return None
+
+
+async def fetch_optifine_cape(
+        player: "Player" = None, 
+        name: str = None, 
+        uuid: str = None, 
+        session: aiohttp.ClientSession = None
+    ):
+    """Fetch a players optifine cape
+    
+    Note
+    ----
+    Passing a :class:`Player` object is recommended. If none is available or you want to fetch
+    a different players optifine cape, a name or UUID can be passed. Names are prefered over UUID's
+    in this case since they require one API call less.
+
+    Parameters
+    ----------
+    player: Player
+        The player to fetch the optifine cape for
+    name: str
+        Minecraft username to fetch the optifine cape for
+    uuid: str
+        UUID of the player to fetch the optifine cape for
+
+    Returns
+    -------
+    Optional[Image]
+        None if the given player has no optifine cape
+
+    Raises
+    ------
+    ValueError
+        No player or name or uuid has been passed
+    """
+    if not player and not name and not uuid:
+        raise ValueError()
+
+    if not session:
+        session = aiohttp.ClientSession()
+        close = True
+    else:
+        close = False
+
+    if player is not None:
+        if player.name is not None:
+            name = player.name
+        else:
+            uuid = player.uuid
+
+    if name is None:
+        name = await _uuid_to_name(uuid, session)
+
+    if name is not None:
+        async with session.get(f"http://s.optifine.net/capes/{name}") as resp:
+            if resp.status == 200:
+                cape = Image.open(BytesIO(await resp.read()))
+            else:
+                cape = None
+        
+    if close:
+        await session.close()
+
+    return cape
 
 
 async def get_players_by_name(names: list, session: aiohttp.ClientSession = None):
@@ -154,7 +229,7 @@ class Player:
                     resp_dict = await resp.json()
                     self._uuid = resp_dict["id"].replace("-", "")
 
-        if self._uuid is not None:
+        if self._uuid is not None and (self._raw_skin is None or self._raw_cape is None):
             async with self._session.get(
                 f"https://sessionserver.mojang.com/session/minecraft/profile/{self._uuid}"
             ) as resp:
@@ -203,6 +278,14 @@ class Player:
             await asyncio.wait_for(self._ready.wait(), timeout=60)
         except asyncio.TimeoutError:
             raise asyncio.TimeoutError
+
+    async def fetch_optifine_cape(self):
+        """Fetch this players optifine cape and stores it to :py:property:Player.Skin.raw_cape
+        
+        This is basically just an alias for :py:func:fetch_optifine_cape"""
+        cape = await fetch_optifine_cape(self)
+        if cape:
+            self.Skin.raw_cape = cape
 
 
 class Skin:
