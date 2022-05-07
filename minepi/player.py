@@ -232,7 +232,7 @@ class Skin:
 
         if self._raw_skin.height == 32: #old skin format
             new_skin_im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-            new_skin_im.paste(self._raw_skin, 0, 0)
+            new_skin_im.paste(self._raw_skin, (0, 0))
 
             for i in range(2):
                 f1 = 40 if i != 0 else 0
