@@ -2,16 +2,16 @@
 Example Usage
 *************
 
-.. code-block:: python
+~~~~~
+Basic
+~~~~~
 
-    import MinePI
-    import asyncio
+.. literalinclude:: ../examples/player.py
+    :language: python
 
-    async def main():
-        #Render a full body skin
-        im = await MinePI.render_3d_skin("Herobrine")
+~~~~~~~~
+Advanced
+~~~~~~~~
 
-        #Render a head only skin
-        im = await MinePI.render_3d_head("Herobrine")
-
-    asyncio.run(main())
+.. literalinclude:: ../examples/multiple_players.py
+    :language: python

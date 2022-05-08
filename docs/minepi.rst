@@ -1,6 +1,10 @@
 *************
 API Reference
 *************
+.. autofunction:: minepi.get_players_by_name
 
-.. automodule:: MinePI.skin_render
+.. autoclass:: minepi.Player
+    :members:
+
+.. autoclass:: minepi.Skin
     :members:
