@@ -260,7 +260,10 @@ class Player:
                         self._raw_cape = Image.open(BytesIO(await resp.read()))
                 else:
                     self._raw_cape = None
-
+                    
+        if self._raw_cape != None:
+            self._raw_cape = self._raw_cape.convert("RGBA")
+            
         self._skin = Skin(
             raw_skin=self._raw_skin, raw_skin_url=_raw_skin_url, raw_cape=self._raw_cape, raw_cape_url=_raw_cape_url
         )
