@@ -261,7 +261,7 @@ class Player:
                 else:
                     self._raw_cape = None
                     
-        if self._raw_cape != None:
+        if self._raw_cape is not None and self._raw_cape.mode != "RGBA":
             self._raw_cape = self._raw_cape.convert("RGBA")
             
         self._skin = Skin(
