@@ -313,7 +313,13 @@ class Skin:
         self._skin: Optional[Image.Image] = None
         self._head: Optional[Image.Image] = None
 
-        if self._raw_skin.height == 32: #old skin format
+        if self._raw_cape.mode != "RGBA":  # Converting capes to RGBA
+            self._raw_cape = self._raw_cape.convert(mode="RGBA")
+
+        if self._raw_skin.mode != "RGBA":  # Converting skins to RGBA
+            self._raw_skin = self._raw_skin.convert(mode="RGBA")
+
+        if self._raw_skin.height == 32:  # old skin format
             new_skin_im = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
             new_skin_im.paste(self._raw_skin, (0, 0))
 
