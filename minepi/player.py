@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 from io import BytesIO
+from multiprocessing.sharedctypes import Value
 from typing import Optional
 
 import aiohttp
@@ -54,7 +55,7 @@ async def fetch_optifine_cape(
     ValueError
         No player or name or uuid has been passed
     """
-    if not player and not name and not uuid:
+    if player is None and name is None and uuid is None:
         raise ValueError()
 
     if not session:
@@ -84,6 +85,133 @@ async def fetch_optifine_cape(
 
     return cape
 
+async def fetch_labymod_cape(
+        player: "Player" = None, 
+        name: str = None, 
+        uuid: str = None, 
+        session: aiohttp.ClientSession = None
+    ):
+    """Fetch a players labymod cape
+    
+    Note
+    ----
+    Passing a :class:`Player` object is recommended. If none is available or you want to fetch
+    a different players labymod cape, a name or UUID can be passed. UUIDs are prefered over names
+    in this case since they require one API call less.
+
+    Parameters
+    ----------
+    player: Player
+        The player to fetch the labymod cape for
+    name: str
+        Minecraft username to fetch the labymod cape for
+    uuid: str
+        UUID of the player to fetch the labymod cape for
+
+    Returns
+    -------
+    Optional[Image]
+        None if the given player has no labymod cape
+
+    Raises
+    ------
+    ValueError
+        No player or name or uuid has been passed
+    """
+    if player is None and name is None and uuid is None:
+        raise ValueError
+
+    if player is None and uuid is None:
+        pass
+
+    else:
+        if player is not None:
+            uuid = player.uuid
+            if uuid is None:
+                raise NotImplementedError
+        
+        if len(uuid) == 28:
+            uuid = f"{uuid[:8]}-{uuid[8:12]}-{uuid[12:16]}-{uuid[16:20]}-{uuid[20:]}"
+
+    async with session.get(f"http://capes.labymod.net/capes/{uuid}") as resp:
+        if resp.status == 200:
+            cape = Image.open(BytesIO(await resp.read()))
+        else:
+            cape = None
+
+    if session is None:
+        session = aiohttp.ClientSession()    
+        close = True
+    else:
+        close = False
+
+    if close:
+        await session.close()
+
+    return cape
+
+async def fetch_minecraftcapes_cape(
+        player: "Player" = None, 
+        name: str = None, 
+        uuid: str = None, 
+        session: aiohttp.ClientSession = None
+    ):
+    """Fetch a players MinecraftCapes cape
+    
+    Note
+    ----
+    Passing a :class:`Player` object is recommended. If none is available or you want to fetch
+    a different players optifine cape, a name or UUID can be passed. Names are prefered over UUID's
+    in this case since they require one API call less.
+
+    Parameters
+    ----------
+    player: Player
+        The player to fetch the MinecraftCapes cape for
+    name: str
+        Minecraft username to fetch the MinecraftCapes cape for
+    uuid: str
+        UUID of the player to fetch the MinecraftCapes cape for
+
+    Returns
+    -------
+    Optional[Image]
+        None if the given player has no MinecraftCapes cape
+
+    Raises
+    ------
+    ValueError
+        No player or name or uuid has been passed
+    """
+    if player is None and name is None and uuid is None:
+        raise ValueError()
+
+    if not session:
+        session = aiohttp.ClientSession()
+        close = True
+    else:
+        close = False
+
+    if player is not None:
+        if player.name is not None:
+            name = player.name
+        else:
+            uuid = player.uuid
+
+    if name is None:
+        name = await _uuid_to_name(uuid, session)
+
+    if name is not None:
+        async with session.get(f"https://www.minecraftcapes.co.uk/getCape.php?u={name}") as resp:
+            if resp.status == 200:
+                cape = Image.open(BytesIO(await resp.read()))
+            else:
+                cape = None
+        
+    if close:
+        await session.close()
+
+    return cape
 
 async def get_players_by_name(names: list, session: aiohttp.ClientSession = None):
     """Useful helper function to get multiple :class:`Player` objects
