@@ -1,10 +1,15 @@
 *************
 API Reference
 *************
-.. autofunction:: minepi.get_players_by_name
+.. toctree::
+    Player
+    Skin
+    Utils
 
 .. autoclass:: minepi.Player
     :members:
 
 .. autoclass:: minepi.Skin
     :members:
+
+.. automodule:: minepi.utils
