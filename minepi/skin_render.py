@@ -49,7 +49,7 @@ class Render:
             vrrl: int = 0,
             vrla: int = 0,
             vrra: int = 0,
-            vrc: int = 0,
+            vrc: int = 30,
             ratio: int = 12,
             head_only: bool = False,
             display_hair: bool = False,
@@ -121,7 +121,10 @@ class Render:
         self.body_angles["torso"] = (cos(0), sin(0), cos(0), sin(0))
         self.body_angles["torso_layer"] = (cos(0), sin(0), cos(0), sin(0))
 
-        self.body_angles["cape"] = (cos(-0.15), sin(-0.15), cos(0), sin(0))
+        alpha_cape = (-radians(self.vrc))
+        print(alpha_cape)
+        self.body_angles["cape"] = (cos(alpha_cape), sin(alpha_cape), cos(0), sin(0))
+        #self.body_angles["cape"] = (cos(0), sin(alpha_cape), cos(0), sin(0))
 
         alpha_head = 0
         beta_head = radians(self.hrh)
@@ -1649,7 +1652,7 @@ class Render:
         if not self.head_only:
             for face in self.polygons["cape"]:
                 for poly in self.polygons["cape"][face]:
-                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["cape"])
+                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 0 * hd_ratio, *self.body_angles["cape"])
 
             for face in self.polygons["r_arm"]:
                 for poly in self.polygons["r_arm"][face]:

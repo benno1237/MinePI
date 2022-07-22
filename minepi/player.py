@@ -62,7 +62,7 @@ class Player:
 
         self._ready: asyncio.Event = asyncio.Event()
         if self._uuid:
-            self._uuid = self._uuid.replace("-", "") #convert to universal uuid format
+            self._uuid = uuid_to_undashed(self._uuid)
 
             if len(self._uuid) != 32:
                 raise ValueError("UUID seems to be invalid.")
@@ -128,15 +128,17 @@ class Player:
     async def initialize(self):
         """Initializes the player class
 
-        This function fetches skin and cape from the mojang API and caches them
-        Once this function has finished, renders of the skin can be created
+        This function is an initializer which helps to get various details about the player with just one method.
+        Once this function has finished running, the corresponding :py:class:`Player` object is
+        guaranteed to have a name, UUID and skin (includes the cape if available) associated to it
+        (if the given username and/or UUID is valid of course).
 
         Warning
         -------
-        This function does two to four API calls to the mojang API:
+        This function does one to four API calls to the mojang API:
             -> (1.) Obtain the players UUID by name (Only if no UUID is given)\n
             -> 2. Get the players profile\n
-            -> 3. Get the players skin\n
+            -> (3.) Get the players skin (Only if no skin is given)\n
             -> (4.) Get the players cape (Only if the player actually has a cape)\n
         Rate limits of the API are unknown but expected to be somewhere close to 6000 requests per 10 minutes.
         """
@@ -149,7 +151,8 @@ class Player:
 
         if self._uuid is None:
             uuid = await name_to_uuid(self._username, self._session)
-            self._uuid = uuid_to_undashed(uuid)
+            if uuid:
+                self._uuid = uuid_to_undashed(uuid)
 
         if self._uuid is not None and (self._raw_skin is None or self._raw_capes["default"] is None):
             async with self._session.get(
@@ -168,10 +171,10 @@ class Player:
                     else:
                         raise NotImplementedError
 
-        _raw_skin_url = textures["SKIN"]["url"]
-        _raw_cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
-
         if textures:
+            _raw_skin_url = textures["SKIN"]["url"]
+            _raw_cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
+
             if not self._raw_skin:
                 async with self._session.get(_raw_skin_url) as resp:
                     self._raw_skin = Image.open(BytesIO(await resp.read()))
@@ -184,12 +187,12 @@ class Player:
                 else:
                     self._raw_capes["default"] = None
 
-        self._skin = Skin(
-            raw_skin=self._raw_skin,
-            raw_skin_url=_raw_skin_url,
-            raw_cape=self._raw_capes["default"],
-            raw_cape_url=_raw_cape_url
-        )
+            self._skin = Skin(
+                raw_skin=self._raw_skin,
+                raw_skin_url=_raw_skin_url,
+                raw_cape=self._raw_capes["default"],
+                raw_cape_url=_raw_cape_url
+            )
 
         if self._close_session:
             await self._session.close()
@@ -349,6 +352,21 @@ class Skin:
 
         self._raw_cape = cape
 
+    def show(self):
+        """Shows the last rendered skin
+
+        Alias for :py:func:`minepi.Skin.skin.show()`
+
+        Raises
+        ------
+        ValueError
+            No skin present
+        """
+        if self._skin:
+            self._skin.show()
+        else:
+            raise ValueError()
+
     def encodeb64(self):
         """Base64 encodes the players skin and cape
 
@@ -367,11 +385,12 @@ class Skin:
             with BytesIO() as buffered:
                 self._raw_cape.save(buffered, format="PNG")
                 buffered.seek(0)
-                im_cape = buffered.get_value()
+                im_cape = buffered.getvalue()
         else:
             im_cape = None
 
-        return f"{base64.b64encode(im_skin)}-{base64.b64encode(im_cape) if im_cape else ''}"
+        bytelist = [base64.b64encode(im_skin), base64.b64encode(im_cape)] if im_cape else [base64.b64encode(im_skin)]
+        return b';'.join(bytelist).decode()
 
     @classmethod
     def decodeb64(cls, b64: str):
@@ -380,18 +399,17 @@ class Skin:
         Parameters
         ----------
         b64: str
-            The base64 encoded raw_skin image or raw_skin and raw_cape separated with a "-".
+            The base64 encoded raw_skin image or raw_skin and raw_cape separated with a ";".
             Can be obtained from :py:func:`encodeb64`
 
         Returns
         -------
         :class:`Skin`
         """
-        if "-" in b64:
-            skin, cape = b64.split("-")
-        else:
-            skin = b64
-            cape = None
+        skin, cape = b64.split(";")
+        skin.encode()
+        if cape:
+            cape.encode()
 
         im_str = base64.b64decode(skin)
         buffered = BytesIO(im_str)
@@ -415,6 +433,7 @@ class Skin:
             vrrl: int = 0,
             vrla: int = 0,
             vrra: int = 0,
+            vrc: int = 30,
             ratio: int = 12,
             display_hair: bool = True,
             display_second_layer: bool = True,
@@ -439,14 +458,17 @@ class Skin:
             Vertical rotation of the left arm
         vrra: int
             Vertical rotation of the right arm
+        vrc: int
+            Vertical rotation of the cape
+            Not actually in degrees, use random values please until you find one you like
         ratio: int
             Resolution of the returned image
         display_hair: bool
-            Whether or not the second head layer is displayed
+            Whether the second head layer is displayed
         display_second_layer: bool
-            Whether or not the second skin layer is displayed
+            Whether the second skin layer is displayed
         display_cape: bool
-            Whether or not the player's cape is shown
+            Whether the player's cape is shown
         aa: bool
             Antialiasing: smoothens the corners a bit
 
@@ -464,7 +486,7 @@ class Skin:
             vrrl=vrrl,
             vrla=vrla,
             vrra=vrra,
-            vrc=0,
+            vrc=vrc,
             ratio=ratio,
             head_only=False,
             display_hair=display_hair,
