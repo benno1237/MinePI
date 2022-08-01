@@ -72,7 +72,8 @@ class Player:
 
     @property
     def uuid(self):
-        """The players UUID"""
+        """The players UUID\n
+        Either passed when creating this class or fetched from the MojangAPI"""
         return self._uuid
 
     @property
@@ -209,33 +210,33 @@ class Player:
             raise asyncio.TimeoutError
 
     async def fetch_optifine_cape(self):
-        """Fetch this players optifine cape and stores it to :py:property:Player.optifine_cape
+        """Fetch this players optifine cape and stores it to :py:attr:`Player.optifine_cape`
         
-        This is basically just an alias for :py:func:fetch_optifine_cape"""
+        This is basically just an alias for :py:func:`utils.fetch_optifine_cape`"""
         cape = await fetch_optifine_cape(self)
         if cape:
             self._raw_capes["optifine"] = cape
 
     async def fetch_labymod_cape(self):
-        """Fetch this players labymod cape and stores it to :py:property:Player.labymod_cape
+        """Fetch this players labymod cape and stores it to :py:attr:`Player.labymod_cape`
 
-        This is basically just an alias for :py:func:fetch_labymod_cape"""
+        This is basically just an alias for :py:func:`utils.fetch_labymod_cape`"""
         cape = await fetch_labymod_cape(self)
         if cape:
             self._raw_capes["labymod"] = cape
 
     async def fetch_minecraftcapes_cape(self):
-        """Fetch this players MinecraftCapes cape and stores it to :py:property:Player.minecraftcapes_cape
+        """Fetch this players MinecraftCapes cape and stores it to :py:attr:`Player.minecraftcapes_cape`
 
-        This is basically just an alias for :py:func:fetch_minecraftcapes_cape"""
+        This is basically just an alias for :py:func:`utils.fetch_minecraftcapes_cape`"""
         cape = await fetch_minecraftcapes_cape(self)
         if cape:
             self._raw_capes["minecraftcapes"] = cape
 
     async def fetch_5zig_cape(self):
-        """Fetch this players 5Zig cape and stores it to :py:property:Player.zig_cape
+        """Fetch this players 5Zig cape and stores it to :py:attr:`Player.zig_cape`
 
-        This is basically just an alias for :py:func:fetch_5zig_cape"""
+        This is basically just an alias for :py:func:`utils.fetch_5zig_cape`"""
         cape = await fetch_5zig_cape(self)
         if cape:
             self._raw_capes["5zig"] = cape

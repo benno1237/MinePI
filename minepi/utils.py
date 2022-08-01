@@ -150,7 +150,25 @@ async def fetch_skin(
     ValueError
         No :py:class:`Player`, name or UUID has been passed
     """
+    if player is None and name is None and uuid is None:
+        raise ValueError()
 
+    if session is None:
+        session = aiohttp.ClientSession()
+        close = True
+    else:
+        close = False
+
+    if player and player.uuid is not None:
+        uuid = player.uuid
+
+    if uuid is None and name is not None:
+        pass
+
+    # ToDo: fetch skin
+
+    if close is True:
+        await session.close()
 
 async def fetch_optifine_cape(
         player: "Player" = None,

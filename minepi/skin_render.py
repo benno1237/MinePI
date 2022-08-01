@@ -7,8 +7,6 @@ if typing.TYPE_CHECKING:
     from . import Skin
 
 def is_not_existing(dic, key1=None, key2=None, key3=None):
-    if not isinstance(dic, dict):
-        print(dic)
     try:
         if key1 is None:
             dic
@@ -122,7 +120,6 @@ class Render:
         self.body_angles["torso_layer"] = (cos(0), sin(0), cos(0), sin(0))
 
         alpha_cape = (-radians(self.vrc))
-        print(alpha_cape)
         self.body_angles["cape"] = (cos(alpha_cape), sin(alpha_cape), cos(0), sin(0))
         #self.body_angles["cape"] = (cos(0), sin(alpha_cape), cos(0), sin(0))
 

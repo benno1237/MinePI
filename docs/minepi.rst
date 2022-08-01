@@ -2,9 +2,8 @@
 API Reference
 *************
 .. toctree::
-    Player
-    Skin
-    Utils
+    :maxdepth: 2
+    :caption: Contents
 
 .. autoclass:: minepi.Player
     :members:
@@ -13,3 +12,4 @@ API Reference
     :members:
 
 .. automodule:: minepi.utils
+    :members:
