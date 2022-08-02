@@ -36,7 +36,8 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
-    "sphinx-prompt"
+    "sphinx-prompt",
+    "autodocsumm",
 ]
 
 autodoc_member_order = "bysource"
@@ -69,5 +70,6 @@ add_module_names = False
 # Intersphinx
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "pillow": ("https://pillow.readthedocs.io/en/latest/", None)
+    "pillow": ("https://pillow.readthedocs.io/en/stable/", None),
+    "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
 }

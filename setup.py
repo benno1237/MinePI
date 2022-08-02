@@ -19,7 +19,8 @@ setup(
         "docs": [
             "sphinx",
             "sphinx-rtd-theme",
-            "sphinx-prompt"
+            "sphinx-prompt",
+            "autodocsumm"
         ]
     },
     classifiers=[

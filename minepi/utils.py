@@ -1,12 +1,30 @@
+import base64
 import typing
 import aiohttp
+import json
 
 from PIL import Image
 from io import BytesIO
-from typing import Optional, Tuple
+from typing import Optional
+
+from .skin import Skin
 
 if typing.TYPE_CHECKING:
     from .player import Player
+
+
+__all__ = [
+    "uuid_to_dashed",
+    "uuid_to_undashed",
+    "name_to_uuid",
+    "uuid_to_name",
+    "fetch_skin",
+    "fetch_optifine_cape",
+    "fetch_labymod_cape",
+    "fetch_5zig_cape",
+    "fetch_minecraftcapes_cape",
+    "get_players_by_name"
+]
 
 
 def uuid_to_dashed(uuid: str) -> str:
@@ -116,16 +134,16 @@ async def fetch_skin(
         name: str = None,
         uuid: str = None,
         session: aiohttp.ClientSession = None
-) -> Tuple[Optional[Image.Image], Optional[Image.Image]]:
+) -> Optional[Skin]:
     """Fetch a players skin
 
     Note
     ----
     This function also returns the players mojang cape (if available).
 
-    Note
+    Tip
     ----
-    Passing a :py:class:`Player` is recommended. If none is available, a name or UUID can be passed.
+    Passing a :py:class:`minepi.Player` is recommended. If none is available, a name or UUID can be passed.
     UUIDs are preferred over names in this case since they require one API call less.
 
     Parameters
@@ -142,13 +160,13 @@ async def fetch_skin(
 
     Returns
     -------
-    Tuple[Optional[Image.Image], Optional[Image.Image]]
-        Skin and mojang cape (if available) if the input is a valid player
+    Skin
+        A fully functional :py:class:`minepi.Skin` class
 
     Raises
     ------
     ValueError
-        No :py:class:`Player`, name or UUID has been passed
+        No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
         raise ValueError()
@@ -163,12 +181,86 @@ async def fetch_skin(
         uuid = player.uuid
 
     if uuid is None and name is not None:
-        pass
+        uuid = await name_to_uuid(name, session)
 
-    # ToDo: fetch skin
+    if uuid is not None:
+        async with session.get(
+            f"https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+        ) as resp:
+            if resp.status == 200:
+                cape = None
+                skin = None
+                resp_dict = await resp.json()
+                for p in resp_dict["properties"]:
+                    if p["name"] == "textures":
+                        textures = json.loads(base64.b64decode(p["value"]))["textures"]
+                        skin_url = textures["SKIN"]["url"]
+                        cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
+
+                        if skin_url:
+                            async with session.get(skin_url) as resp_skin:
+                                if resp.status == 200:
+                                    skin = Image.open(BytesIO(await resp_skin.read()))
+
+                        if cape_url:
+                            async with session.get(cape_url) as resp_cape:
+                                if resp.status == 200:
+                                    cape = Image.open(BytesIO(await resp_cape.read()))
+                        break
 
     if close is True:
         await session.close()
+
+    if skin is None:
+        raise ValueError
+
+    return Skin(
+        raw_skin=skin,
+        raw_cape=cape,
+        raw_skin_url=skin_url,
+        raw_cape_url=cape_url,
+        name=resp_dict["name"]
+    )
+
+
+async def fetch_mojang_cape(
+        player: "Player" = None,
+        name: str = None,
+        uuid: str = None,
+        session: aiohttp.ClientSession = None
+) -> Optional[Image.Image]:
+    """Fetch a players mojang cape
+
+    Tip
+    ----
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
+    UUIDs are preferred over names in this case since they require one API call less.
+
+    Parameters
+    ----------
+    player: Player
+        The player to fetch the mojang cape for
+    name: str
+        Minecraft username to fetch the mojang cape for
+    uuid: str
+        UUID to fetch the mojang cape for
+    session: aiohttp.ClientSession
+        The ClientSession to use for requests
+        Defaults to a new session which is closed again after handling all requests
+
+    Returns
+    -------
+    Optional[PIL.Image.Image]
+        None if the given player has no mojang cape
+
+    Raises
+    ------
+    ValueError
+        No :py:class:`minepi.Player`, name or UUID has been passed
+    """
+    s = await fetch_skin(player, name, uuid, session)
+    return s.raw_cape if s is not None else None
+
 
 async def fetch_optifine_cape(
         player: "Player" = None,
@@ -178,9 +270,9 @@ async def fetch_optifine_cape(
 ) -> Optional[Image.Image]:
     """Fetch a players optifine cape
 
-    Note
+    Tip
     ----
-    Passing a :py:class:`Player` object is recommended. If none is available, a name or UUID can be passed.
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
     Names are preferred over UUIDs in this case since they require one API call less.
 
     Parameters
@@ -197,13 +289,13 @@ async def fetch_optifine_cape(
 
     Returns
     -------
-    Optional[Image]
+    Optional[PIL.Image.Image]
         None if the given player has no optifine cape
 
     Raises
     ------
     ValueError
-        No :py:class:`Player`, name or UUID has been passed
+        No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
         raise ValueError()
@@ -244,9 +336,9 @@ async def fetch_labymod_cape(
 ) -> Optional[Image.Image]:
     """Fetch a players labymod cape
 
-    Note
+    Tip
     ----
-    Passing a :py:class:`Player` object is recommended. If none is available,
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available,
     a name or UUID can be passed. UUIDs are preferred over names in this case since they require one API call less.
 
     Parameters
@@ -263,13 +355,13 @@ async def fetch_labymod_cape(
 
     Returns
     -------
-    Optional[Image]
+    Optional[PIL.Image.Image]
         None if the given player has no labymod cape
 
     Raises
     ------
     ValueError
-        No :py:class:`Player`, name or UUID has been passed
+        No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
         raise ValueError
@@ -317,9 +409,9 @@ async def fetch_5zig_cape(
 ) -> Optional[Image.Image]:
     """Fetch a players 5Zig cape
 
-    Note
+    Tip
     ----
-    Passing a :class:`Player` object is recommended. If none is available, a name or UUID can be passed.
+    Passing a :class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
     UUIDs are preferred over names in this case since they require one API call less.
 
     Parameters
@@ -336,13 +428,13 @@ async def fetch_5zig_cape(
 
     Returns
     -------
-    Optional[Image]
+    Optional[PIL.Image.Image]
         None if the given player has no 5Zig cape
 
     Raises
     ------
     ValueError
-        No :py:class:`Player`, name or UUID has been passed
+        No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
         raise ValueError
@@ -386,9 +478,9 @@ async def fetch_minecraftcapes_cape(
 ) -> Optional[Image.Image]:
     """Fetch a players MinecraftCapes cape
 
-    Note
+    Tip
     ----
-    Passing a :py:class:`Player` object is recommended. If none is available, a name or UUID can be passed.
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
     Names are preferred over UUIDs in this case since they require one API call less.
 
     Parameters
@@ -405,13 +497,13 @@ async def fetch_minecraftcapes_cape(
 
     Returns
     -------
-    Optional[Image]
+    Optional[PIL.Image.Image]
         None if the given player has no MinecraftCapes cape
 
     Raises
     ------
     ValueError
-        No :py:class:`Player`, name or UUID has been passed
+        No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
         raise ValueError()
@@ -445,7 +537,7 @@ async def fetch_minecraftcapes_cape(
 
 
 async def get_players_by_name(names: list, session: aiohttp.ClientSession = None):
-    """Useful helper function to get multiple :py:class:`Player` objects
+    """Useful helper function to get multiple :py:class:`minepi.Player` objects
 
     Only does one API call for the entire list instead of one per player
     This is recommended to be used if you have a list of usernames
@@ -461,7 +553,7 @@ async def get_players_by_name(names: list, session: aiohttp.ClientSession = None
     Returns
     -------
     list
-        A list of :py:class:`Player` objects
+        A list of :py:class:`minepi.Player` objects
 
     Raises
     ------
