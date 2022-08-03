@@ -314,7 +314,7 @@ async def fetch_optifine_cape(
         name = await uuid_to_name(uuid, session)
 
     if name is not None:
-        async with session.get(f"http://s.optifine.net/capes/{name}") as resp:
+        async with session.get(f"http://s.optifine.net/capes/{name}.png") as resp:
             if resp.status == 200:
                 cape = Image.open(BytesIO(await resp.read()))
             else:
