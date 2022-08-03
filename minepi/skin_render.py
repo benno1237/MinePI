@@ -451,77 +451,71 @@ class Render:
                                                              "y": 8.25 * hd_ratio,
                                                              "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
 
-            if "back" in self.visible_faces["head"]["front"]:
-                for i in range(0, 8 * hd_ratio):
-                    for j in range(0, 8 * hd_ratio):
-                        color = skin.getpixel((64 * hd_ratio - 1 - i, 8 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["back"].append(Polygon([
-                                volume_points[i][j][-2 * hd_ratio],
-                                volume_points[i + 1][j][-2 * hd_ratio],
-                                volume_points[i + 1][j + 1][-2 * hd_ratio],
-                                volume_points[i][j + 1][-2 * hd_ratio]],
-                                color))
-
-            if "front" in self.visible_faces["head"]["front"]:
-                for i in range(0, 8 * hd_ratio):
-                    for j in range(0, 8 * hd_ratio):
-                        color = skin.getpixel((40 * hd_ratio + i, 8 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["front"].append(Polygon([
-                                volume_points[i][j][6 * hd_ratio],
-                                volume_points[i + 1][j][6 * hd_ratio],
-                                volume_points[i + 1][j + 1][6 * hd_ratio],
-                                volume_points[i][j + 1][6 * hd_ratio]],
-                                color))
-
-            if "right" in self.visible_faces["head"]["front"]:
+            for i in range(0, 8 * hd_ratio):
                 for j in range(0, 8 * hd_ratio):
-                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                        color = skin.getpixel((34 * hd_ratio + k, 8 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["right"].append(Polygon([
-                                volume_points[0][j][k],
-                                volume_points[0][j][k + 1],
-                                volume_points[0][j + 1][k + 1],
-                                volume_points[0][j + 1][k]],
-                                color))
+                    color = skin.getpixel((64 * hd_ratio - 1 - i, 8 * hd_ratio + j))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["back"].append(Polygon([
+                            volume_points[i][j][-2 * hd_ratio],
+                            volume_points[i + 1][j][-2 * hd_ratio],
+                            volume_points[i + 1][j + 1][-2 * hd_ratio],
+                            volume_points[i][j + 1][-2 * hd_ratio]],
+                            color))
 
-            if "left" in self.visible_faces["head"]["front"]:
+            for i in range(0, 8 * hd_ratio):
                 for j in range(0, 8 * hd_ratio):
-                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                        color = skin.getpixel((54 * hd_ratio - k - 1, 8 * hd_ratio + j))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["left"].append(Polygon([
-                                volume_points[8 * hd_ratio][j][k],
-                                volume_points[8 * hd_ratio][j][k + 1],
-                                volume_points[8 * hd_ratio][j + 1][k + 1],
-                                volume_points[8 * hd_ratio][j + 1][k]],
-                                color))
+                    color = skin.getpixel((40 * hd_ratio + i, 8 * hd_ratio + j))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["front"].append(Polygon([
+                            volume_points[i][j][6 * hd_ratio],
+                            volume_points[i + 1][j][6 * hd_ratio],
+                            volume_points[i + 1][j + 1][6 * hd_ratio],
+                            volume_points[i][j + 1][6 * hd_ratio]],
+                            color))
 
-            if "top" in self.visible_faces["head"]["front"]:
-                for i in range(0, 8 * hd_ratio):
-                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                        color = skin.getpixel((40 * hd_ratio + i, 2 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["top"].append(Polygon([
-                                volume_points[i][0][k],
-                                volume_points[i + 1][0][k],
-                                volume_points[i + 1][0][k + 1],
-                                volume_points[i][0][k + 1]],
-                                color))
+            for j in range(0, 8 * hd_ratio):
+                for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                    color = skin.getpixel((34 * hd_ratio + k, 8 * hd_ratio + j))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["right"].append(Polygon([
+                            volume_points[0][j][k],
+                            volume_points[0][j][k + 1],
+                            volume_points[0][j + 1][k + 1],
+                            volume_points[0][j + 1][k]],
+                            color))
 
-            if "bottom" in self.visible_faces["head"]["front"]:
-                for i in range(0, 8 * hd_ratio):
-                    for k in range(-2 * hd_ratio, 6 * hd_ratio):
-                        color = skin.getpixel((48 * hd_ratio + 1, 2 * hd_ratio + k))
-                        if color[3] != 0:
-                            self.polygons["helmet"]["bottom"].append(Polygon([
-                                volume_points[i][8 * hd_ratio][k],
-                                volume_points[i + 1][8 * hd_ratio][k],
-                                volume_points[i + 1][8 * hd_ratio][k + 1],
-                                volume_points[i][8 * hd_ratio][k + 1]],
-                                color))
+            for j in range(0, 8 * hd_ratio):
+                for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                    color = skin.getpixel((54 * hd_ratio - k - 1, 8 * hd_ratio + j))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["left"].append(Polygon([
+                            volume_points[8 * hd_ratio][j][k],
+                            volume_points[8 * hd_ratio][j][k + 1],
+                            volume_points[8 * hd_ratio][j + 1][k + 1],
+                            volume_points[8 * hd_ratio][j + 1][k]],
+                            color))
+
+            for i in range(0, 8 * hd_ratio):
+                for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                    color = skin.getpixel((40 * hd_ratio + i, 2 * hd_ratio + k))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["top"].append(Polygon([
+                            volume_points[i][0][k],
+                            volume_points[i + 1][0][k],
+                            volume_points[i + 1][0][k + 1],
+                            volume_points[i][0][k + 1]],
+                            color))
+
+            for i in range(0, 8 * hd_ratio):
+                for k in range(-2 * hd_ratio, 6 * hd_ratio):
+                    color = skin.getpixel((48 * hd_ratio + 1, 2 * hd_ratio + k))
+                    if color[3] != 0:
+                        self.polygons["helmet"]["bottom"].append(Polygon([
+                            volume_points[i][8 * hd_ratio][k],
+                            volume_points[i + 1][8 * hd_ratio][k],
+                            volume_points[i + 1][8 * hd_ratio][k + 1],
+                            volume_points[i][8 * hd_ratio][k + 1]],
+                            color))
 
         if not self.head_only:
             """Torso"""
