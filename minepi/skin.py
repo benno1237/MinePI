@@ -122,7 +122,11 @@ class Skin:
             Cape image has the wrong format or size
         """
         if cape.width != 64 or cape.height != 32:
-            raise ValueError("Cape image must be 64x32 pixels")
+            try:
+                # Optifine sends back a correct skin but the image size is wrong, so just resize the image.
+                cape.resize((64, 32))
+            except:
+                raise ValueError("Cape image must be 64x32 pixels")
 
         self._raw_cape = cape
 
