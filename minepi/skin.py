@@ -127,7 +127,11 @@ class Skin:
                 cape.resize((64, 32))
             except:
                 raise ValueError("Cape image must be 64x32 pixels")
-
+        
+        # minecraftcapes.net capes aren't in RGBA mode, so we need to convert them
+        if cape.mode != "RGBA":  # Converting capes to RGBA
+            cape = cape.convert(mode="RGBA")
+            
         self._raw_cape = cape
 
     def show(self):
