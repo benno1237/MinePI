@@ -522,7 +522,7 @@ async def fetch_minecraftcapes_cape(
         name = await uuid_to_name(uuid, session)
 
     if name is not None:
-        async with session.get(f"https://www.minecraftcapes.co.uk/getCape.php?u={name}") as resp:
+        async with session.get(f"https://minecraftcapes.net/profile/{uuid}/cape") as resp:
             if resp.status == 200:
                 cape = Image.open(BytesIO(await resp.read()))
             else:

@@ -122,8 +122,16 @@ class Skin:
             Cape image has the wrong format or size
         """
         if cape.width != 64 or cape.height != 32:
-            raise ValueError("Cape image must be 64x32 pixels")
-
+            try:
+                # Optifine sends back a correct skin but the image size is wrong, so just resize the image.
+                cape.resize((64, 32))
+            except:
+                raise ValueError("Cape image must be 64x32 pixels")
+        
+        # minecraftcapes.net capes aren't in RGBA mode, so we need to convert them
+        if cape.mode != "RGBA":  # Converting capes to RGBA
+            cape = cape.convert(mode="RGBA")
+            
         self._raw_cape = cape
 
     def show(self):
