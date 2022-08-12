@@ -5,7 +5,7 @@ from PIL import Image, ImageOps
 from io import BytesIO
 
 from .skin_render import Render
-
+from .errors import NoRenderedSkin
 
 class Skin:
     """
@@ -33,15 +33,14 @@ class Skin:
     ):
         self._raw_skin: Image.Image = raw_skin
         self._raw_skin_url: Optional[str] = raw_skin_url
-        self._raw_cape: Optional[Image.Image] = raw_cape
+        self._raw_cape: Optional[Image.Image] = None
         self._raw_cape_url: Optional[str] = raw_cape_url
         self._name: Optional[str] = name
 
         self._skin: Optional[Image.Image] = None
         self._head: Optional[Image.Image] = None
 
-        if self._raw_cape is not None and self._raw_cape.mode != "RGBA":  # Converting capes to RGBA
-            self._raw_cape = self._raw_cape.convert(mode="RGBA")
+        self.set_cape(raw_cape)
 
         if self._raw_skin.mode != "RGBA":  # Converting skins to RGBA
             self._raw_skin = self._raw_skin.convert(mode="RGBA")
@@ -115,14 +114,19 @@ class Skin:
         ----------
         cape: PIL.Image.Image
             The new cape image (64x32px)
-
-        Raises
-        ------
-        ValueError
-            Cape image has the wrong format or size
         """
-        if cape.width != 64 or cape.height != 32:
-            raise ValueError("Cape image must be 64x32 pixels")
+        # attempt to detect wrongly scaled mojang capes
+        if cape.width / cape.height == 2 and (cape.width != 64 or cape.height != 32):
+            cape.resize((64, 32), resample=Image.LANCZOS)
+
+        if cape.width == 22 and cape.height == 17:  # Labymod
+            pass
+
+        if cape.width == 64 and cape.height > 32:  # MinecraftCapes animated
+            pass
+
+        if cape.mode != "RGBA":  # Converting capes to RGBA
+            cape = cape.convert(mode="RGBA")
 
         self._raw_cape = cape
 
@@ -133,13 +137,13 @@ class Skin:
 
         Raises
         ------
-        ValueError
-            No skin present
+        NoRenderedSkin
+            No skin present. Generate a render using :py:func:`render_skin`
         """
         if self._skin:
             self._skin.show()
         else:
-            raise ValueError()
+            raise NoRenderedSkin()
 
     def encodeb64(self):
         """Base64 encodes the players skin and cape

@@ -13,9 +13,11 @@ from .utils import (
     fetch_labymod_cape,
     fetch_5zig_cape,
     fetch_minecraftcapes_cape,
+    fetch_tlauncher_cape,
     name_to_uuid,
     uuid_to_undashed,
 )
+from .errors import InvalidPlayer
 
 
 class Player:
@@ -43,6 +45,9 @@ class Player:
             raw_cape: Image.Image = None,
             session: aiohttp.ClientSession = None
     ):
+        if uuid is None and name is None:
+            raise ValueError("Pass a username or UUID")
+
         self._uuid: Optional[str] = uuid
         self._username: Optional[str] = name
 
@@ -55,6 +60,7 @@ class Player:
             "labymod": None,
             "5zig": None,
             "minecraftcapes": None,
+            "tlauncher": None,
         }
 
         self._session: Optional[aiohttp.ClientSession] = session
@@ -116,6 +122,11 @@ class Player:
         """The player's 5Zig cape"""
         return self._raw_capes["5zig"]
 
+    @property
+    def tlauncher_cape(self):
+        """The player's TLauncher cape"""
+        return self._raw_capes["tlauncher"]
+
     def set_skin(self, skin: "Skin"):
         """Manually overwrite/set this players skin
 
@@ -142,10 +153,12 @@ class Player:
             -> (3.) Get the players skin (Only if no skin is given)\n
             -> (4.) Get the players cape (Only if the player actually has a cape)\n
         Rate limits of the API are unknown but expected to be somewhere close to 6000 requests per 10 minutes.
-        """
-        if self._uuid is None and self._username is None:
-            raise ValueError
 
+        Raises
+        ------
+        errors.InvalidPlayer
+            Player does not seem to be valid
+        """
         if not self._session:
             self._session = aiohttp.ClientSession()
             self._close_session = True
@@ -155,6 +168,7 @@ class Player:
             if uuid:
                 self._uuid = uuid_to_undashed(uuid)
 
+        textures = None
         if self._uuid is not None and (self._raw_skin is None or self._raw_capes["default"] is None):
             async with self._session.get(
                 f"https://sessionserver.mojang.com/session/minecraft/profile/{self._uuid}"
@@ -170,9 +184,9 @@ class Player:
                             break
 
                     else:
-                        raise NotImplementedError
+                        raise InvalidPlayer()
 
-        if textures:
+        if textures is not None:
             _raw_skin_url = textures["SKIN"]["url"]
             _raw_cape_url = textures["CAPE"]["url"] if "CAPE" in textures.keys() else None
 
@@ -210,33 +224,41 @@ class Player:
             raise asyncio.TimeoutError
 
     async def fetch_optifine_cape(self):
-        """Fetch this players optifine cape and stores it to :py:attr:`Player.optifine_cape`
+        """Fetches the players optifine cape and stores it to :py:attr:`Player.optifine_cape`
         
         This is basically just an alias for :py:func:`utils.fetch_optifine_cape`"""
         cape = await fetch_optifine_cape(self)
-        if cape:
+        if cape is not None:
             self._raw_capes["optifine"] = cape
 
     async def fetch_labymod_cape(self):
-        """Fetch this players labymod cape and stores it to :py:attr:`Player.labymod_cape`
+        """Fetches the players labymod cape and stores it to :py:attr:`Player.labymod_cape`
 
         This is basically just an alias for :py:func:`utils.fetch_labymod_cape`"""
         cape = await fetch_labymod_cape(self)
-        if cape:
+        if cape is not None:
             self._raw_capes["labymod"] = cape
 
     async def fetch_minecraftcapes_cape(self):
-        """Fetch this players MinecraftCapes cape and stores it to :py:attr:`Player.minecraftcapes_cape`
+        """Fetches the players MinecraftCapes cape and stores it to :py:attr:`Player.minecraftcapes_cape`
 
         This is basically just an alias for :py:func:`utils.fetch_minecraftcapes_cape`"""
         cape = await fetch_minecraftcapes_cape(self)
-        if cape:
+        if cape is not None:
             self._raw_capes["minecraftcapes"] = cape
 
     async def fetch_5zig_cape(self):
-        """Fetch this players 5Zig cape and stores it to :py:attr:`Player.zig_cape`
+        """Fetches the players 5Zig cape and stores it to :py:attr:`Player.zig_cape`
 
         This is basically just an alias for :py:func:`utils.fetch_5zig_cape`"""
         cape = await fetch_5zig_cape(self)
-        if cape:
+        if cape is not None:
             self._raw_capes["5zig"] = cape
+
+    async def fetch_tlauncher_cape(self):
+        """Fetches the players TLauncher cape and stores it to :py:attr:`Player.tlauncher_cape`
+
+        This is basically just an alias for :py:func:`utils.fetch_tlauncher_cape`"""
+        cape = await fetch_tlauncher_cape()
+        if cape is not None:
+            self._raw_capes["tlauncher"] = cape

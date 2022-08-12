@@ -23,7 +23,8 @@ __all__ = [
     "fetch_labymod_cape",
     "fetch_5zig_cape",
     "fetch_minecraftcapes_cape",
-    "get_players_by_name"
+    "fetch_tlauncher_cape",
+    "get_players_by_name",
 ]
 
 
@@ -169,7 +170,7 @@ async def fetch_skin(
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
-        raise ValueError()
+        raise ValueError("At least one parameter must be passed")
 
     if session is None:
         session = aiohttp.ClientSession()
@@ -258,7 +259,7 @@ async def fetch_mojang_cape(
     ValueError
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
-    s = await fetch_skin(player, name, uuid, session)
+    s = await fetch_skin(player=player, name=name, uuid=uuid, session=session)
     return s.raw_cape if s is not None else None
 
 
@@ -298,7 +299,7 @@ async def fetch_optifine_cape(
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
-        raise ValueError()
+        raise ValueError("At least one parameter must be passed")
 
     if session is None:
         session = aiohttp.ClientSession()
@@ -338,8 +339,8 @@ async def fetch_labymod_cape(
 
     Tip
     ----
-    Passing a :py:class:`minepi.Player` object is recommended. If none is available,
-    a name or UUID can be passed. UUIDs are preferred over names in this case since they require one API call less.
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
+    UUIDs are preferred over names in this case since they require one API call less.
 
     Parameters
     ----------
@@ -364,7 +365,7 @@ async def fetch_labymod_cape(
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
-        raise ValueError
+        raise ValueError("At least one parameter must be passed")
 
     if session is None:
         session = aiohttp.ClientSession()
@@ -373,25 +374,21 @@ async def fetch_labymod_cape(
         close = False
 
     if player is not None:
-        name = player.name
-    elif name is not None:
+        uuid = player.uuid
+    elif uuid is not None:
         pass
     else:
-        name = await uuid_to_name(uuid, session)
+        uuid = await name_to_uuid(name, session)
 
-    if name is not None:
-        async with session.get(f"https://api.labymod.net/capes/capecreator/capedata.php?username={name}") as resp:
+    if uuid is not None:
+        if len(uuid) == 32:
+            uuid = uuid_to_dashed(uuid)
+
+        async with session.get(f"https://dl.labymod.net/capes/{uuid}") as resp:
             if resp.status == 200:
-                cape_url = (await resp.json())["cape_url"]
+                cape = Image.open(BytesIO(await resp.read()))
             else:
-                cape_url = None
-
-        if cape_url:
-            async with session.get(cape_url) as resp:
-                if resp.status == 200:
-                    cape = Image.open(BytesIO(await resp.read()))
-                else:
-                    cape = None
+                cape = None
     else:
         cape = None
 
@@ -413,6 +410,12 @@ async def fetch_5zig_cape(
     ----
     Passing a :class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
     UUIDs are preferred over names in this case since they require one API call less.
+
+    Warning
+    -------
+    5zig capes are not guaranteed to work yet.
+    If you own an account with 5zigreborn cape, it would be very helpful if you could send us the
+    username.
 
     Parameters
     ----------
@@ -437,7 +440,7 @@ async def fetch_5zig_cape(
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
-        raise ValueError
+        raise ValueError("At least one parameter must be passed")
 
     if session is None:
         session = aiohttp.ClientSession()
@@ -453,7 +456,7 @@ async def fetch_5zig_cape(
         uuid = await name_to_uuid(name, session)
 
     if uuid is not None:
-        if len(uuid) == 28:
+        if len(uuid) == 32:
             uuid = uuid_to_dashed(uuid)
 
         async with session.get(f"https://textures.5zigreborn.eu/profile/{uuid}") as resp:
@@ -481,7 +484,11 @@ async def fetch_minecraftcapes_cape(
     Tip
     ----
     Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
-    Names are preferred over UUIDs in this case since they require one API call less.
+    UUIDs are preferred over names in this case since they require one API call less.
+
+    Warning
+    -------
+    Animated MinecraftCapes capes are not supported yet
 
     Parameters
     ----------
@@ -506,9 +513,86 @@ async def fetch_minecraftcapes_cape(
         No :py:class:`minepi.Player`, name or UUID has been passed
     """
     if player is None and name is None and uuid is None:
-        raise ValueError()
+        raise ValueError("At least one parameter must be passed")
 
     if not session:
+        session = aiohttp.ClientSession()
+        close = True
+    else:
+        close = False
+
+    if player is not None:
+        uuid = player.uuid
+    elif uuid is not None:
+        pass
+    else:
+        uuid = await name_to_uuid(name, session)
+
+    if uuid is not None:
+        if len(uuid) == 36:
+            uuid = uuid_to_undashed(uuid)
+
+        async with session.get(f"https://minecraftcapes.net/profile/{uuid}/cape") as resp:
+            if resp.status == 200:
+                cape = Image.open(BytesIO(await resp.read()))
+            else:
+                cape = None
+    else:
+        cape = None
+
+    if close:
+        await session.close()
+
+    return cape
+
+
+async def fetch_tlauncher_cape(
+        player: "Player" = None,
+        name: str = None,
+        uuid: str = None,
+        session: aiohttp.ClientSession = None
+) -> Optional[Image.Image]:
+    """Fetch a players TLauncher cape
+
+    Tip
+    ----
+    Passing a :py:class:`minepi.Player` object is recommended. If none is available, a name or UUID can be passed.
+    Names are preferred over UUIDs in this case since they require one API call less.
+
+
+    Warning
+    -------
+    TLauncher capes are still experimental and not guaranteed to work.
+    If you want to help implement them further, please get in touch with me.
+    If you could share a few account names with TLauncher capes (especially animated ones),
+    that would help us a lot.
+
+    Parameters
+    ----------
+    player: Player
+        The player to fetch the TLauncher cape for
+    name: str
+        Minecraft username to fetch the TLauncher cape for
+    uuid: str
+        UUID to fetch the TLauncher cape for
+    session: aiohttp.ClientSession
+        The ClientSession to use for requests
+        Defaults to a new session which is closed again after handling all requests
+
+    Returns
+    -------
+    Optional[PIL.Image.Image]
+        None if the given player has no TLauncher cape
+
+    Raises
+    ------
+    ValueError
+        No :py:class:`minepi.Player`, name or UUID has been passed
+    """
+    if player is None and name is None and uuid is None:
+        raise ValueError()
+
+    if session is None:
         session = aiohttp.ClientSession()
         close = True
     else:
@@ -521,14 +605,20 @@ async def fetch_minecraftcapes_cape(
     else:
         name = await uuid_to_name(uuid, session)
 
+    cape = None
     if name is not None:
-        async with session.get(f"https://www.minecraftcapes.co.uk/getCape.php?u={name}") as resp:
+        async with session.get(f"https://auth.tlauncher.org/skin/profile/texture/login/{name}") as resp:
             if resp.status == 200:
-                cape = Image.open(BytesIO(await resp.read()))
+                resp_dict = await resp.json()
+                cape_url = resp_dict["CAPE"]["url"] if "CAPE" in resp_dict.keys() else None
             else:
-                cape = None
-    else:
-        cape = None
+                cape_url = None
+
+        if cape_url is not None:
+            if not cape_url.startswith("http://textures.minecraft.net/"):
+                async with session.get(cape_url) as resp:
+                    if resp.status == 200:
+                        cape = Image.open(BytesIO(await resp.read()))
 
     if close:
         await session.close()
@@ -554,15 +644,7 @@ async def get_players_by_name(names: list, session: aiohttp.ClientSession = None
     -------
     list
         A list of :py:class:`minepi.Player` objects
-
-    Raises
-    ------
-    ValueError
-        An empty list was passed
     """
-    if not names:
-        raise ValueError("Pass at least one minecraft username")
-
     if session is None:
         session = aiohttp.ClientSession()
         close = True
