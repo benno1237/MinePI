@@ -181,16 +181,8 @@ class Render:
             v["back"] = cube_max_depth_faces[1]
             v["front"] = [face for face in all_faces if face not in v["back"]]
 
-        self.set_cube_points()
-        cube_max_depth_faces = None
-        for cube_point in self.cube_points:
-            cube_point[0].project()
-
-            if (not cube_max_depth_faces) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
-                cube_max_depth_faces = cube_point
-
-        self.back_faces = cube_max_depth_faces[1]
-        self.front_faces = [face for face in all_faces if face not in self.back_faces]
+        self.front_faces = self.visible_faces["torso"]["front"]
+        self.back_faces = [face for face in all_faces if face not in self.front_faces]
 
     def set_cube_points(self):
         self.cube_points.append(
