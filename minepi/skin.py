@@ -40,7 +40,8 @@ class Skin:
         self._skin: Optional[Image.Image] = None
         self._head: Optional[Image.Image] = None
 
-        self.set_cape(raw_cape)
+        if raw_cape is not None:
+            self.set_cape(raw_cape)
 
         if self._raw_skin.mode != "RGBA":  # Converting skins to RGBA
             self._raw_skin = self._raw_skin.convert(mode="RGBA")
