@@ -23,7 +23,7 @@ copyright = '2022, benno1237'
 author = 'benno1237'
 
 # The full version, including alpha/beta/rc tags
-release = '0.5.0a1'
+release = '0.5.0'
 
 
 # -- General configuration ---------------------------------------------------
