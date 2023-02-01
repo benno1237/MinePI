@@ -1,22 +1,29 @@
 from distutils.core import setup
 
 setup(
-    name = "MinePI",
-    packages = ["MinePI"],
-    version = "0.4.2",
-    license = "MIT",
-    description = "Minecraft utility library.",
-    author = "benno1237, honigkuchen",
-    author_email = "benno.kollreider@gmail.com",
-    url = "https://github.com/benno1237/MinePI",
-    download_url = "https://github.com/benno1237/MinePI/archive/refs/tags/0.4.2.tar.gz",
-    keywords = ["Minecraft", "Skin", "Render", "Head", "UUID"],
-    install_requires = [
+    name="MinePI",
+    packages=["minepi"],
+    version="0.5.0",
+    license="MIT",
+    description="Minecraft utility library.",
+    author="benno1237, honigkuchen",
+    author_email="benno.kollreider@gmail.com",
+    url="https://github.com/benno1237/MinePI",
+    download_url="https://github.com/benno1237/MinePI/archive/refs/tags/0.5.0.tar.gz",
+    keywords=["Minecraft", "Skin", "Render", "Head", "UUID"],
+    install_requires=[
         "aiohttp",
         "Pillow",
-        "sphinx-prompt"
     ],
-      classifiers=[
+    extras_require={
+        "docs": [
+            "sphinx",
+            "sphinx-rtd-theme",
+            "sphinx-prompt",
+            "autodocsumm"
+        ]
+    },
+    classifiers=[
     'Development Status :: 3 - Alpha',     
     'Intended Audience :: Developers',      
     'Topic :: Software Development :: Build Tools',
@@ -26,5 +33,6 @@ setup(
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
-  ],
+    'Programming Language :: Python :: 3.11',
+    ],
 )

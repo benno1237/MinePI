@@ -19,11 +19,11 @@
 # -- Project information -----------------------------------------------------
 
 project = 'MinePI'
-copyright = '2021, benno1237'
+copyright = '2022, benno1237'
 author = 'benno1237'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4.0'
+release = '0.5.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,8 +36,11 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
-    "sphinx-prompt"
+    "sphinx-prompt",
+    "autodocsumm",
 ]
+
+autodoc_member_order = "bysource"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -67,5 +70,6 @@ add_module_names = False
 # Intersphinx
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "pillow": ("https://pillow.readthedocs.io/en/latest/", None)
+    "pillow": ("https://pillow.readthedocs.io/en/stable/", None),
+    "aiohttp": ("https://aiohttp.readthedocs.io/en/stable/", None),
 }

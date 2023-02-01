@@ -7,5 +7,10 @@ Welcome to MinePI's documentation!
 
    installation
    example_usage
-   minepi
+
+.. toctree::
+    :maxdepth: 2
+    :caption: API Reference:
+
+    player
 
