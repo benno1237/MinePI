@@ -40,8 +40,7 @@ class Skin:
         self._skin: Optional[Image.Image] = None
         self._head: Optional[Image.Image] = None
 
-        if raw_cape is not None:
-            self.set_cape(raw_cape)
+        self.set_cape(raw_cape)
 
         if self._raw_skin.mode != "RGBA":  # Converting skins to RGBA
             self._raw_skin = self._raw_skin.convert(mode="RGBA")
@@ -218,6 +217,7 @@ class Skin:
             display_second_layer: bool = True,
             display_cape: bool = True,
             aa: bool = False,
+            transparent_background: bool = False,
     ) -> Optional[Image.Image]:
         """Render a full body skin
 
@@ -272,6 +272,7 @@ class Skin:
             display_layers=display_second_layer,
             display_cape=display_cape,
             aa=aa,
+            transparent_background=transparent_background,
         )
         im = await render.get_render()
         self._skin = im
