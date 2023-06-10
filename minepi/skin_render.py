@@ -1,10 +1,13 @@
+import asyncio
+import numpy as np
+
 from math import radians, sin, cos
 from PIL import Image, ImageDraw
-import asyncio
-import typing
+from typing import Optional, List, TYPE_CHECKING
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from . import Skin
+
 
 def is_not_existing(dic, key1=None, key2=None, key3=None):
     try:
@@ -73,18 +76,45 @@ class Render:
         self.rendered_image = None
 
         self.loop = asyncio.get_event_loop()
-        self.cube_points = []
+        self.cube_points = self.set_cube_points()
         self.polygons = {}
-
-        self.cos_a = None
-        self.sin_a = None
-        self.cos_b = None
-        self.sin_b = None
+        self.body_angles = {}
+        self.visible_faces = {}
+        self.front_faces = {}
+        self.back_faces = {}
 
         self.min_x = 0
         self.max_x = 0
         self.min_y = 0
         self.max_y = 0
+
+    @staticmethod
+    def rotation_x(angle):
+        return np.array([
+            [1, 0, 0],
+            [0, cos(angle), sin(angle)],
+            [0, -sin(angle), cos(angle)],
+        ])
+
+    @staticmethod
+    def rotation_y(angle):
+        return np.array([
+            [cos(angle), 0, sin(angle)],
+            [0, 1, 0],
+            [-sin(angle), 0, cos(angle)],
+        ])
+
+    @staticmethod
+    def rotation_z(angle):
+        return np.array([
+            [cos(angle), -sin(angle), 0],
+            [sin(angle), cos(angle), 0],
+            [0, 0, 1],
+        ])
+
+    @classmethod
+    def calculate_rotation_matrix(cls, ry, rx):
+        return np.dot(cls.rotation_y(ry), cls.rotation_x(rx))
 
     async def get_render(self):
         skin = self.player.raw_skin
@@ -109,44 +139,43 @@ class Render:
         return im
 
     def calculate_angles(self):
-        self.body_angles = {}
         alpha = radians(self.vr)
-        beta = radians(self.hr)
+        beta = -radians(self.hr)
 
-        self.cos_a, self.sin_a = cos(alpha), sin(alpha)
-        self.cos_b, self.sin_b = cos(beta), sin(beta)
+        # general rotation matrix (around x and z axis)
+        r = np.dot(self.rotation_y(beta), self.rotation_x(alpha))
+        self.body_angles["general"] = r
 
-        self.body_angles["torso"] = (cos(0), sin(0), cos(0), sin(0))
-        self.body_angles["torso_layer"] = (cos(0), sin(0), cos(0), sin(0))
+        # ToDo: think of a better way to do this
+        # currently: apply part specific rotation -> apply offset -> apply general rotation
+        self.body_angles["torso"] = np.dot(self.rotation_y(0), self.rotation_x(0))
+        self.body_angles["torso_layer"] = self.body_angles["torso"]
 
+        # cape has an additional x-axis rotation
         alpha_cape = (-radians(self.vrc))
-        self.body_angles["cape"] = (cos(alpha_cape), sin(alpha_cape), cos(0), sin(0))
-        #self.body_angles["cape"] = (cos(0), sin(alpha_cape), cos(0), sin(0))
+        self.body_angles["cape"] = self.rotation_x(alpha_cape)
 
-        alpha_head = 0
+        # head has an additional z-axis rotation
         beta_head = radians(self.hrh)
-        self.body_angles["head"] = (cos(alpha_head), sin(alpha_head), cos(beta_head), sin(beta_head))
-        self.body_angles["helmet"] = (cos(alpha_head), sin(alpha_head), cos(beta_head), sin(beta_head))
+        self.body_angles["head"] = self.rotation_y(beta_head)
+        self.body_angles["helmet"] = self.body_angles["head"]
 
+        # arms and legs have an additional x-axis rotation
         alpha_r_arm = radians(self.vrra)
-        beta_r_arm = 0
-        self.body_angles["r_arm"] = (cos(alpha_r_arm), sin(alpha_r_arm), cos(beta_r_arm), sin(beta_r_arm))
-        self.body_angles["r_arm_layer"] = (cos(alpha_r_arm), sin(alpha_r_arm), cos(beta_r_arm), sin(beta_r_arm))
+        self.body_angles["r_arm"] = self.rotation_x(alpha_r_arm)
+        self.body_angles["r_arm_layer"] = self.body_angles["r_arm"]
 
         alpha_l_arm = radians(self.vrla)
-        beta_l_arm = 0
-        self.body_angles["l_arm"] = (cos(alpha_l_arm), sin(alpha_l_arm), cos(beta_l_arm), sin(beta_l_arm))
-        self.body_angles["l_arm_layer"] = (cos(alpha_l_arm), sin(alpha_l_arm), cos(beta_l_arm), sin(beta_l_arm))
+        self.body_angles["l_arm"] = self.rotation_x(alpha_l_arm)
+        self.body_angles["l_arm_layer"] = self.body_angles["l_arm"]
 
         alpha_r_leg = radians(self.vrrl)
-        beta_r_leg = 0
-        self.body_angles["r_leg"] = (cos(alpha_r_leg), sin(alpha_r_leg), cos(beta_r_leg), sin(beta_r_leg))
-        self.body_angles["r_leg_layer"] = (cos(alpha_r_leg), sin(alpha_r_leg), cos(beta_r_leg), sin(beta_r_leg))
+        self.body_angles["r_leg"] = self.rotation_x(alpha_r_leg)
+        self.body_angles["r_leg_layer"] = self.body_angles["r_leg"]
 
         alpha_l_leg = radians(self.vrll)
-        beta_l_leg = 0
-        self.body_angles["l_leg"] = (cos(alpha_l_leg), sin(alpha_l_leg), cos(beta_l_leg), sin(beta_l_leg))
-        self.body_angles["l_leg_layer"] = (cos(alpha_l_leg), sin(alpha_l_leg), cos(beta_l_leg), sin(beta_l_leg))
+        self.body_angles["l_leg"] = self.rotation_x(alpha_l_leg)
+        self.body_angles["l_leg_layer"] = self.body_angles["l_leg"]
 
     def determine_faces(self):
         self.visible_faces = {
@@ -164,138 +193,104 @@ class Render:
             "cape": {"front": [], "back": {}}
         }
 
-        all_faces = ["back", "right", "top", "front", "left", "bottom"]
+        all_faces = ["top", "bottom", "back", "front", "left", "right"]
 
         for k, v in self.visible_faces.items():
             cube_max_depth_faces = None
-            self.set_cube_points()
 
             for cube_point in self.cube_points:
-                cube_point[0].pre_project(0, 0, 0, self.body_angles[k][0], self.body_angles[k][1],
-                                          self.body_angles[k][2], self.body_angles[k][3])
-                cube_point[0].project()
+                cube_point[0].project(np.array([0, 0, 0]), self.body_angles[k])  # torso is always level with the plane
 
-                if (not cube_max_depth_faces) or (cube_max_depth_faces[0].get_depth() > cube_point[0].get_depth()):
+                if (cube_max_depth_faces is None) or (cube_max_depth_faces[0].depth > cube_point[0].depth):
                     cube_max_depth_faces = cube_point
 
             v["back"] = cube_max_depth_faces[1]
             v["front"] = [face for face in all_faces if face not in v["back"]]
-
         self.front_faces = self.visible_faces["torso"]["front"]
         self.back_faces = [face for face in all_faces if face not in self.front_faces]
 
     def set_cube_points(self):
-        self.cube_points.append(
+        cube_points = []
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 0,
-                        "y": 0,
-                        "z": 0
-                    }
+                    np.array([0, 0, 0])
                 ),
                 ["back", "right", "top"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 0,
-                        "y": 0,
-                        "z": 1
-                    }
+                    np.array([0, 0, 1])
                 ),
                 ["front", "right", "top"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 0,
-                        "y": 1,
-                        "z": 0
-                    }
+                    np.array([0, 1, 0])
                 ),
                 ["back", "right", "bottom"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 0,
-                        "y": 1,
-                        "z": 1
-                    }
+                    np.array([0, 1, 1])
                 ),
                 ["front", "right", "bottom"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 1,
-                        "y": 0,
-                        "z": 0
-                    }
+                    np.array([1, 0, 0])
                 ),
                 ["back", "left", "top"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 1,
-                        "y": 0,
-                        "z": 1
-                    }
+                    np.array([1, 0, 1])
                 ),
                 ["front", "left", "top"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 1,
-                        "y": 1,
-                        "z": 0
-                    }
+                    np.array([1, 1, 0])
                 ),
                 ["back", "left", "bottom"]
             )
         )
 
-        self.cube_points.append(
+        cube_points.append(
             (
                 Point(
                     self,
-                    {
-                        "x": 1,
-                        "y": 1,
-                        "z": 1
-                    }
+                    np.array([1, 1, 1])
                 ),
                 ["front", "left", "bottom"]
             )
         )
+        return cube_points
 
     def generate_polygons(self, hd_ratio, skin, im_cape):
         self.polygons = {
@@ -319,21 +314,21 @@ class Render:
         for i in range(0, 9 * hd_ratio):
             for j in range(0, 9 * hd_ratio):
                 volume_points = append_dict(volume_points, i, j, -2 * hd_ratio,
-                                            Point(self, {"x": i, "y": j, "z": -2 * hd_ratio}))
+                                            Point(self, np.array([i, j, -2 * hd_ratio])))
                 volume_points = append_dict(volume_points, i, j, 6 * hd_ratio,
-                                            Point(self, {"x": i, "y": j, "z": 6 * hd_ratio}))
+                                            Point(self, np.array([i, j, 6 * hd_ratio])))
 
         for j in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                volume_points = append_dict(volume_points, 0, j, k, Point(self, {"x": 0, "y": j, "z": k}))
+                volume_points = append_dict(volume_points, 0, j, k, Point(self, np.array([0, j, k])))
                 volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
-                                            Point(self, {"x": 8 * hd_ratio, "y": j, "z": k}))
+                                            Point(self, np.array([8 * hd_ratio, j, k])))
 
         for i in range(0, 9 * hd_ratio):
             for k in range(-2 * hd_ratio, 7 * hd_ratio):
-                volume_points = append_dict(volume_points, i, 0, k, Point(self, {"x": i, "y": 0, "z": k}))
+                volume_points = append_dict(volume_points, i, 0, k, Point(self, np.array([i, 0, k])))
                 volume_points = append_dict(volume_points, i, 8 * hd_ratio, k,
-                                            Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                                            Point(self, np.array([i, 8 * hd_ratio, k])))
 
         if "back" in self.visible_faces["head"]["front"]:
             for i in range(0, 8 * hd_ratio):
@@ -413,35 +408,35 @@ class Render:
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 9 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, -2 * hd_ratio,
-                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "z": -2.25 * hd_ratio}))
+                                                Point(self, np.array([i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                      j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                      -2.25 * hd_ratio])))
                     volume_points = append_dict(volume_points, i, j, 6 * hd_ratio,
-                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "z": 6.25 * hd_ratio}))
+                                                Point(self, np.array([i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                      j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                      6.25 * hd_ratio])))
 
             for j in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
                     volume_points = append_dict(volume_points, 0, j, k,
-                                                Point(self, {"x": -0.25 * hd_ratio,
-                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                                                Point(self, np.array([-0.25 * hd_ratio,
+                                                                        j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                        k * 8.5 / 8 - 0.25 * hd_ratio])))
                     volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
-                                                Point(self, {"x": 8.25 * hd_ratio,
-                                                             "y": j * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                                                Point(self, np.array([8.25 * hd_ratio,
+                                                                        j * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                        k * 8.5 / 8 - 0.25 * hd_ratio])))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(-2 * hd_ratio, 7 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "y": -0.25 * hd_ratio,
-                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                                                Point(self, np.array([i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                        -0.25 * hd_ratio,
+                                                                        k * 8.5 / 8 - 0.25 * hd_ratio])))
                     volume_points = append_dict(volume_points, i, 8 * hd_ratio, k,
-                                                Point(self, {"x": i * 8.5 / 8 - 0.25 * hd_ratio,
-                                                             "y": 8.25 * hd_ratio,
-                                                             "z": k * 8.5 / 8 - 0.25 * hd_ratio}))
+                                                Point(self, np.array([i * 8.5 / 8 - 0.25 * hd_ratio,
+                                                                        8.25 * hd_ratio,
+                                                                        k * 8.5 / 8 - 0.25 * hd_ratio])))
 
             for i in range(0, 8 * hd_ratio):
                 for j in range(0, 8 * hd_ratio):
@@ -515,23 +510,23 @@ class Render:
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, 0,
-                                                Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 0}))
+                                                Point(self, np.array([i, j + 8 * hd_ratio, 0])))
                     volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                Point(self, {"x": i, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                                                Point(self, np.array([i, j + 8 * hd_ratio, 4 * hd_ratio])))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, 0, j, k,
-                                                Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([0, j + 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
-                                                Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([8 * hd_ratio, j + 8 * hd_ratio, k])))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i, 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i, 20 * hd_ratio, k])))
 
             if "back" in self.visible_faces["torso"]["front"]:
                 for i in range(0, 8 * hd_ratio):
@@ -611,35 +606,34 @@ class Render:
                 for i in range(0, 9 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": -0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          -0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": 4.125 * hd_ratio}))
-
+                                                    Point(self, np.array([i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          4.125 * hd_ratio])))
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, 0, j, k,
-                                                    Point(self, {"x": -0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([-0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
-                                                    Point(self, {"x": 8.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([8.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 for i in range(0, 9 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
-                                                                 "y": 7.875 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                         7.875 * hd_ratio,
+                                                                         k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": i * 8.25 / 8 - 0.125 * hd_ratio,
-                                                                 "y": 20.125 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 8.25 / 8 - 0.125 * hd_ratio,
+                                                                         12.125 * hd_ratio,
+                                                                         k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 if "back" in self.visible_faces["torso_layer"]["front"]:
                     for i in range(0, 8 * hd_ratio):
@@ -719,23 +713,23 @@ class Render:
                 for i in range(0, 11 * hd_ratio):
                     for j in range(0, 17 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": i - 1, "y": j + 8 * hd_ratio, "z": -1}))
+                                                    Point(self, np.array([i - 1, j + 8 * hd_ratio, -1])))
                         volume_points = append_dict(volume_points, i, j, 1 * hd_ratio,
-                                                    Point(self, {"x": i - 1, "y": j + 8 * hd_ratio, "z": 0 * hd_ratio}))
+                                                    Point(self, np.array([i - 1, j + 8 * hd_ratio, 0])))
 
                 for j in range(0, 17 * hd_ratio):
                     for k in range(0, 2 * hd_ratio):
                         volume_points = append_dict(volume_points, 0, j, k,
-                                                    Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                                                    Point(self, np.array([0, j + 8 * hd_ratio, k])))
                         volume_points = append_dict(volume_points, 8 * hd_ratio, j, k,
-                                                    Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                                                    Point(self, np.array([8 * hd_ratio, j + 8 * hd_ratio, k])))
 
                 for i in range(0, 11 * hd_ratio):
                     for k in range(0, 2 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": i, "y": 8 * hd_ratio, "z": k}))
+                                                    Point(self, np.array([i, 8 * hd_ratio, k])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                                                    Point(self, np.array([i, 20 * hd_ratio, k])))
 
                 if "back" in self.visible_faces["cape"]["front"]:
                     for i in range(0, 10 * hd_ratio):
@@ -811,23 +805,23 @@ class Render:
             for i in range(start, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, 0,
-                                                Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                                                Point(self, np.array([i - 4 * hd_ratio, j + 8 * hd_ratio, 0])))
                     volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                Point(self, {"x": i - 4 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                                                Point(self, np.array([i - 4 * hd_ratio, j + 8 * hd_ratio, 4 * hd_ratio])))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, start, j, k,
-                                                Point(self, {"x": -4 * hd_ratio + start, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([-4 * hd_ratio + start, j + 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                Point(self, {"x": 0, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([0, j + 8 * hd_ratio, k])))
 
             for i in range(start, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i - 4 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i - 4 * hd_ratio, 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                Point(self, {"x": i - 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i - 4 * hd_ratio, 20 * hd_ratio, k])))
 
             if "back" in self.visible_faces["r_arm"]["front"]:
                 for i in range(start, 4 * hd_ratio):
@@ -907,35 +901,35 @@ class Render:
                 for i in range(start, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": -0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          -0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": 4.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                           (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                           4.125 * hd_ratio])))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, start, j, k,
-                                                    Point(self, {"x": (-4.125 + start) * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(-4.125 + start) * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                    Point(self, {"x": 0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 for i in range(start, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
-                                                                 "y": 7.875 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                          7.875 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
-                                                                 "y": 20.125 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) - 4 * hd_ratio,
+                                                                          20.125 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 if "back" in self.visible_faces["r_arm_layer"]["front"]:
                     for i in range(start, 4 * hd_ratio):
@@ -1014,23 +1008,23 @@ class Render:
             for i in range(0, (5 - start) * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, 0,
-                                                Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 0}))
+                                                Point(self, np.array([i + 8 * hd_ratio, j + 8 * hd_ratio, 0])))
                     volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                Point(self, {"x": i + 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": 4 * hd_ratio}))
+                                                Point(self, np.array([i + 8 * hd_ratio, j + 8 * hd_ratio, 4 * hd_ratio])))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, 0, j, k,
-                                                Point(self, {"x": 8 * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([8 * hd_ratio, j + 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, (4 - start) * hd_ratio, j, k,
-                                                Point(self, {"x": (12 - start) * hd_ratio, "y": j + 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([(12 - start) * hd_ratio, j + 8 * hd_ratio, k])))
 
             for i in range(0, (5 - start) * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i + 8 * hd_ratio, "y": 8 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i + 8 * hd_ratio, 8 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                Point(self, {"x": i + 8 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i + 8 * hd_ratio, 20 * hd_ratio, k])))
 
             if "back" in self.visible_faces["l_arm"]["front"]:
                 for i in range(0, (4 - start) * hd_ratio):
@@ -1110,35 +1104,35 @@ class Render:
                 for i in range(0, (5 - start) * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": -0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          -0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": 4.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          4.125 * hd_ratio])))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, 0, j, k,
-                                                    Point(self, {"x": 7.875 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([7.875 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, (4 - start) * hd_ratio, j, k,
-                                                    Point(self, {"x": (12.125 - start) * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(12.125 - start) * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 for i in range(0, (5 - start) * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "y": 7.875 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          7.875 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
-                                                                 "y": 20.125 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 8 * hd_ratio,
+                                                                          20.125 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 if "back" in self.visible_faces["l_arm_layer"]["front"]:
                     for i in range(0, (4 - start) * hd_ratio):
@@ -1217,23 +1211,23 @@ class Render:
             for i in range(0, 5 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, 0,
-                                                Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 0}))
+                                                Point(self, np.array([i, j + 20 * hd_ratio, 0])))
                     volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                Point(self, {"x": i, "y": j + 20 * hd_ratio, "z": 4 * hd_ratio}))
+                                                Point(self, np.array([i, j + 20 * hd_ratio, 4 * hd_ratio])))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, 0, j, k,
-                                                Point(self, {"x": 0, "y": j + 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([0, j + 20 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([4 * hd_ratio, j + 20 * hd_ratio, k])))
 
             for i in range(0, 5 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i, "y": 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i, 20 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                Point(self, {"x": i, "y": 32 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i, 32 * hd_ratio, k])))
 
             if "back" in self.visible_faces["r_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1313,35 +1307,35 @@ class Render:
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": -0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          -0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": 4.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          4.125 * hd_ratio])))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, 0, j, k,
-                                                    Point(self, {"x": -0.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([-0.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                    Point(self, {"x": 4.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([4.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
-                                                                 "y": 19.875 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                          19.875 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": i * 4.25 / 4 - 0.125 * hd_ratio,
-                                                                 "y": 32.125 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([i * 4.25 / 4 - 0.125 * hd_ratio,
+                                                                          32.125 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 if "back" in self.visible_faces["r_leg_layer"]["front"]:
                     for i in range(0, 4 * hd_ratio):
@@ -1420,27 +1414,23 @@ class Render:
             for i in range(0, 9 * hd_ratio):
                 for j in range(0, 13 * hd_ratio):
                     volume_points = append_dict(volume_points, i, j, 0,
-                                                Point(self, {"x": i + 4 * hd_ratio,
-                                                             "y": j + 20 * hd_ratio,
-                                                             "z": 0}))
+                                                Point(self, np.array([i + 4 * hd_ratio, j + 20 * hd_ratio, 0])))
                     volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                Point(self, {"x": i + 4 * hd_ratio,
-                                                             "y": j + 20 * hd_ratio,
-                                                             "z": 4 * hd_ratio}))
+                                                Point(self, np.array([i + 4 * hd_ratio, j + 20 * hd_ratio, 4 * hd_ratio])))
 
             for j in range(0, 13 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, 0, j, k,
-                                                Point(self, {"x": 4 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([4 * hd_ratio, j + 20 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                Point(self, {"x": 8 * hd_ratio, "y": j + 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([8 * hd_ratio, j + 20 * hd_ratio, k])))
 
             for i in range(0, 9 * hd_ratio):
                 for k in range(0, 5 * hd_ratio):
                     volume_points = append_dict(volume_points, i, 0, k,
-                                                Point(self, {"x": i + 4 * hd_ratio, "y": 20 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i + 4 * hd_ratio, 20 * hd_ratio, k])))
                     volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                Point(self, {"x": i + 4 * hd_ratio, "y": 32 * hd_ratio, "z": k}))
+                                                Point(self, np.array([i + 4 * hd_ratio, 32 * hd_ratio, k])))
 
             if "back" in self.visible_faces["l_leg"]["front"]:
                 for i in range(0, 4 * hd_ratio):
@@ -1520,35 +1510,37 @@ class Render:
                 for i in range(0, 5 * hd_ratio):
                     for j in range(0, 13 * hd_ratio):
                         volume_points = append_dict(volume_points, i, j, 0,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": -0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          -0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, j, 4 * hd_ratio,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": 4.125 * hd_ratio}))
+                                                    Point(self,
+                                                          np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                    (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                    4.125 * hd_ratio])))
 
                 for j in range(0, 13 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, 0, j, k,
-                                                    Point(self, {"x": 3.875 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([3.875 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, 4 * hd_ratio, j, k,
-                                                    Point(self, {"x": 8.125 * hd_ratio,
-                                                                 "y": (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([8.125 * hd_ratio,
+                                                                          (j * 12.25 / 12 - 0.125 * hd_ratio) + 20 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 for i in range(0, 5 * hd_ratio):
                     for k in range(0, 5 * hd_ratio):
                         volume_points = append_dict(volume_points, i, 0, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
-                                                                 "y": 19.875 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self, np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                          19.875 * hd_ratio,
+                                                                          k * 4.25 / 4 - 0.125 * hd_ratio])))
                         volume_points = append_dict(volume_points, i, 12 * hd_ratio, k,
-                                                    Point(self, {"x": (i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
-                                                                 "y": 32.125 * hd_ratio,
-                                                                 "z": k * 4.25 / 4 - 0.125 * hd_ratio}))
+                                                    Point(self,
+                                                          np.array([(i * 4.25 / 4 - 0.125 * hd_ratio) + 4 * hd_ratio,
+                                                                    32.125 * hd_ratio,
+                                                                    k * 4.25 / 4 - 0.125 * hd_ratio])))
 
                 if "back" in self.visible_faces["l_leg_layer"]["front"]:
                     for i in range(0, 4 * hd_ratio):
@@ -1625,56 +1617,89 @@ class Render:
     def member_rotation(self, hd_ratio):
         for face in self.polygons["head"]:
             for poly in self.polygons["head"][face]:
-                poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["head"])
+                poly.project(
+                    np.array([4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio]),
+                    self.body_angles["head"]
+                )
 
         if self.display_hair:
             for face in self.polygons["helmet"]:
                 for poly in self.polygons["helmet"][face]:
-                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio, *self.body_angles["head"])
+                    poly.project(
+                        np.array([4 * hd_ratio, 8 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["head"]
+                    )
 
         if not self.head_only:
             for face in self.polygons["cape"]:
                 for poly in self.polygons["cape"][face]:
-                    poly.pre_project(4 * hd_ratio, 8 * hd_ratio, 0 * hd_ratio, *self.body_angles["cape"])
+                    poly.project(
+                        np.array([4 * hd_ratio, 8 * hd_ratio, 0]),
+                        self.body_angles["cape"]
+                    )
 
             for face in self.polygons["r_arm"]:
                 for poly in self.polygons["r_arm"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_arm"])
+                    poly.project(
+                        np.array([-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["r_arm"]
+                    )
 
             for face in self.polygons["r_arm_layer"]:
                 for poly in self.polygons["r_arm_layer"][face]:
-                    poly.pre_project(-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_arm_layer"])
+                    poly.project(
+                        np.array([-2 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["r_arm_layer"]
+                    )
 
             for face in self.polygons["l_arm"]:
                 for poly in self.polygons["l_arm"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_arm"])
+                    poly.project(
+                        np.array([10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["l_arm"]
+                    )
 
             for face in self.polygons["l_arm_layer"]:
                 for poly in self.polygons["l_arm_layer"][face]:
-                    poly.pre_project(10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_arm_layer"])
+                    poly.project(
+                        np.array([10 * hd_ratio, 10 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["l_arm_layer"]
+                    )
 
             for face in self.polygons["r_leg"]:
                 for poly in self.polygons["r_leg"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_leg"])
+                    poly.project(
+                        np.array([2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["r_leg"]
+                    )
 
             for face in self.polygons["r_leg_layer"]:
                 for poly in self.polygons["r_leg_layer"][face]:
-                    poly.pre_project(2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["r_leg_layer"])
+                    poly.project(
+                        np.array([2 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["r_leg_layer"]
+                    )
 
             for face in self.polygons["l_leg"]:
                 for poly in self.polygons["l_leg"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_leg"])
+                    poly.project(
+                        np.array([6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["l_leg"]
+                    )
 
             for face in self.polygons["l_leg_layer"]:
                 for poly in self.polygons["l_leg_layer"][face]:
-                    poly.pre_project(6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio, *self.body_angles["l_leg_layer"])
+                    poly.project(
+                        np.array([6 * hd_ratio, 22 * hd_ratio, 2 * hd_ratio]),
+                        self.body_angles["l_leg_layer"]
+                    )
 
     def create_project_plan(self):
-        for piece in self.polygons:
-            for face in self.polygons[piece]:
-                for poly in self.polygons[piece][face]:
+        for body_part in self.polygons:
+            for face in self.polygons[body_part]:
+                for poly in self.polygons[body_part][face]:
                     if not poly.is_projected:
-                        poly.project()
+                        poly.project(np.array([0, 0, 0]), self.body_angles["torso"])
 
     def display_image(self):
         width = self.max_x - self.min_x
@@ -1728,6 +1753,10 @@ class Render:
                 display_order.append({"torso": self.visible_faces["torso"]["front"]})
                 display_order.append({"torso_layer": self.visible_faces["torso"]["front"]})
 
+                display_order.append({"helmet": self.back_faces})
+                display_order.append({"head": self.visible_faces["head"]["front"]})
+                display_order.append({"helmet": self.visible_faces["head"]["front"]})
+
                 display_order.append({"r_arm_layer": self.back_faces})
                 display_order.append({"r_arm": self.visible_faces["r_arm"]["front"]})
                 display_order.append({"r_arm_layer": self.visible_faces["r_arm"]["front"]})
@@ -1747,6 +1776,10 @@ class Render:
                 display_order.append({"torso_layer": self.back_faces})
                 display_order.append({"torso": self.visible_faces["torso"]["front"]})
                 display_order.append({"torso_layer": self.visible_faces["torso"]["front"]})
+
+                display_order.append({"helmet": self.back_faces})
+                display_order.append({"head": self.visible_faces["head"]["front"]})
+                display_order.append({"helmet": self.visible_faces["head"]["front"]})
 
                 display_order.append({"l_arm_layer": self.back_faces})
                 display_order.append({"l_arm": self.visible_faces["l_arm"]["front"]})
@@ -1755,17 +1788,15 @@ class Render:
             if "back" in self.front_faces:
                 display_order.append({"cape": self.visible_faces["cape"]["front"]})
 
-            display_order.append({"helmet": self.back_faces})
-            display_order.append({"head": self.visible_faces["head"]["front"]})
-            display_order.append({"helmet": self.visible_faces["head"]["front"]})
         else:
-            display_order.append({"helmet": self.back_faces})
-            display_order.append({"head": self.visible_faces["head"]["front"]})
-            display_order.append({"helmet": self.visible_faces["head"]["front"]})
             if "right" in self.front_faces:
                 display_order.append({"l_arm_layer": self.back_faces})
                 display_order.append({"l_arm": self.visible_faces["l_arm"]["front"]})
                 display_order.append({"l_arm_layer": self.visible_faces["l_arm"]["front"]})
+
+                display_order.append({"helmet": self.back_faces})
+                display_order.append({"head": self.visible_faces["head"]["front"]})
+                display_order.append({"helmet": self.visible_faces["head"]["front"]})
 
                 display_order.append({"torso_layer": self.back_faces})
                 display_order.append({"torso": self.visible_faces["torso"]["front"]})
@@ -1786,6 +1817,10 @@ class Render:
                 display_order.append({"r_arm_layer": self.back_faces})
                 display_order.append({"r_arm": self.visible_faces["r_arm"]["front"]})
                 display_order.append({"r_arm_layer": self.visible_faces["r_arm"]["front"]})
+
+                display_order.append({"helmet": self.back_faces})
+                display_order.append({"head": self.visible_faces["head"]["front"]})
+                display_order.append({"helmet": self.visible_faces["head"]["front"]})
 
                 display_order.append({"torso_layer": self.back_faces})
                 display_order.append({"torso": self.visible_faces["torso"]["front"]})
@@ -1810,60 +1845,32 @@ class Render:
 
 
 class Point:
-    def __init__(self, super_cls, origin_coords, dest_coords={}, is_projected=False, is_pre_projected=False):
-        self.dest_coords = dest_coords
-        self.is_projected = is_projected
-        self.is_pre_projected = is_pre_projected
+    def __init__(self, super_cls, origin_coords: np.array):
+        self.is_projected: bool = False
         self.super = super_cls
+        self.origin_coords: np.array = origin_coords
+        self.dest_coords: Optional[np.array] = None
 
-        if (isinstance(origin_coords, dict)) and (len(origin_coords.keys()) == 3):
-            x = origin_coords["x"] if not is_not_existing(origin_coords, "x") else 0
-            y = origin_coords["y"] if not is_not_existing(origin_coords, "y") else 0
-            z = origin_coords["z"] if not is_not_existing(origin_coords, "z") else 0
-        else:
-            x, y, z = 0, 0, 0
+    @property
+    def depth(self):
+        return self.dest_coords[2]
 
-        self.origin_coords = {"x": x, "y": y, "z": z}
+    def project(self, offset: np.array, rotation_matrix: np.array):
+        self.dest_coords = np.dot(
+            np.dot(self.origin_coords - offset, rotation_matrix) + offset, self.super.body_angles["general"]
+        )
 
-    def pre_project(self, dx, dy, dz, cos_a, sin_a, cos_b, sin_b):
-        if not self.is_pre_projected:
-            x = self.origin_coords["x"] - dx
-            y = self.origin_coords["y"] - dy
-            z = self.origin_coords["z"] - dz
-            self.origin_coords["x"] = x * cos_b + z * sin_b + dx
-            self.origin_coords["y"] = x * sin_a * sin_b + y * cos_a - z * sin_a * cos_b + dy
-            self.origin_coords["z"] = -x * cos_a * sin_b + y * sin_a + z * cos_a * cos_b + dz
-            self.is_pre_projected = True
-
-    def project(self):
-        x = self.origin_coords["x"]
-        y = self.origin_coords["y"]
-        z = self.origin_coords["z"]
-        self.dest_coords = {}
-        self.dest_coords["x"] = x * self.super.cos_b + z * self.super.sin_b
-        self.dest_coords[
-            "y"] = x * self.super.sin_a * self.super.sin_b + y * self.super.cos_a - z * self.super.sin_a * self.super.cos_b
-        self.dest_coords[
-            "z"] = -x * self.super.cos_a * self.super.sin_b + y * self.super.sin_a + z * self.super.cos_a * self.super.cos_b
+        self.super.min_x = min(self.super.min_x, self.dest_coords[0])
+        self.super.max_x = max(self.super.max_x, self.dest_coords[0])
+        self.super.min_y = min(self.super.min_y, self.dest_coords[1])
+        self.super.max_y = max(self.super.max_y, self.dest_coords[1])
         self.is_projected = True
-        self.super.min_x = min(self.super.min_x, self.dest_coords["x"])
-        self.super.max_x = max(self.super.max_x, self.dest_coords["x"])
-        self.super.min_y = min(self.super.min_y, self.dest_coords["y"])
-        self.super.max_y = max(self.super.max_y, self.dest_coords["y"])
-
-    def get_depth(self):
-        if not self.is_projected:
-            self.project()
-        return self.dest_coords["z"]
-
-    def get_dest_coords(self):
-        return self.dest_coords
 
 
 class Polygon:
-    def __init__(self, dots, color, is_projected=False, face="w", face_depth=0):
+    def __init__(self, dots: List[Point], color, face="w", face_depth=0):
         self.face = face
-        self.is_projected = is_projected
+        self.is_projected = False
         self.face_depth = face_depth
         self.dots = dots
         self.color = color
@@ -1871,15 +1878,15 @@ class Polygon:
         coord_1 = dots[1].origin_coords
         coord_2 = dots[2].origin_coords
 
-        if (coord_0["x"] == coord_1["x"]) and (coord_1["x"] == coord_2["x"]):
+        if (coord_0[0] == coord_1[0]) and (coord_1[0] == coord_2[0]):
             self.face = "x"
-            self.face_depth = coord_0["x"]
-        elif (coord_0["y"] == coord_1["y"]) and (coord_1["y"] == coord_2["y"]):
+            self.face_depth = coord_0[0]
+        elif (coord_0[1] == coord_1[1]) and (coord_1[1] == coord_2[1]):
             self.face = "y"
-            self.face_depth = coord_0["y"]
-        elif (coord_0["z"] == coord_1["z"]) and (coord_1["z"] == coord_2["z"]):
+            self.face_depth = coord_0[1]
+        elif (coord_0[2] == coord_1[2]) and (coord_1[2] == coord_2[2]):
             self.face = "z"
-            self.face_depth = coord_0["z"]
+            self.face_depth = coord_0[2]
 
     def add_png_polygon(self, draw, min_x, min_y, ratio):
         points_2d = []
@@ -1891,25 +1898,22 @@ class Polygon:
 
         for dot in self.dots:
             coord = dot.dest_coords
-            if not coord_x:
-                coord_x = coord["x"]
-            if not coord_y:
-                coord_y = coord["y"]
-            if coord_x != coord["x"]:
+            if coord_x is None:
+                coord_x = coord[0]
+            if coord_y is None:
+                coord_y = coord[1]
+            if coord_x != coord[0]:
                 same_plan_x = False
-            if coord_y != coord["y"]:
+            if coord_y != coord[1]:
                 same_plan_y = False
-            points_2d.append(((coord["x"] - min_x) * ratio, (coord["y"] - min_y) * ratio))
+            points_2d.append(((coord[0] - min_x) * ratio, (coord[1] - min_y) * ratio))
 
             if not (same_plan_x or same_plan_y):
                 draw.polygon(points_2d, fill=self.color, outline=self.color)
 
-    def project(self):
+    def project(self, offset: np.array, rotation_matrix: np.array):
         for dot in self.dots:
             if not dot.is_projected:
-                dot.project()
+                dot.project(offset, rotation_matrix)
         self.is_projected = True
 
-    def pre_project(self, dx, dy, dz, cos_a, sin_a, cos_b, sin_b):
-        for dot in self.dots:
-            dot.pre_project(dx, dy, dz, cos_a, sin_a, cos_b, sin_b)
