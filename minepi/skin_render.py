@@ -125,7 +125,6 @@ class Render:
             self.determine_faces()
             self.generate_polygons(hd_ratio, skin, self.player.raw_cape)
             self.member_rotation(hd_ratio)
-            self.create_project_plan()
 
             im = self.display_image()
             return im
@@ -1694,12 +1693,13 @@ class Render:
                         self.body_angles["l_leg_layer"]
                     )
 
-    def create_project_plan(self):
-        for body_part in self.polygons:
-            for face in self.polygons[body_part]:
-                for poly in self.polygons[body_part][face]:
-                    if not poly.is_projected:
-                        poly.project(np.array([0, 0, 0]), self.body_angles["torso"])
+            for body_part in ["torso", "torso_layer"]:
+                for face in self.polygons[body_part]:
+                    for poly in self.polygons[body_part][face]:
+                        poly.project(
+                            np.array([0, 0, 0]),
+                            self.body_angles[body_part]
+                        )
 
     def display_image(self):
         width = self.max_x - self.min_x
