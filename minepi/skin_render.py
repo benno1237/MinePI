@@ -49,7 +49,9 @@ class Render:
             vrll: int = 0,
             vrrl: int = 0,
             vrla: int = 0,
+            hrla: int = 0,
             vrra: int = 0,
+            hrra: int = 0,
             vrc: int = 30,
             ratio: int = 12,
             head_only: bool = False,
@@ -64,7 +66,9 @@ class Render:
         self.vrll = vrll
         self.vrrl = vrrl
         self.vrla = vrla
+        self.hrla = hrla
         self.vrra = vrra
+        self.hrra = hrra
         self.vrc = vrc
         self.head_only = head_only
         self.ratio = ratio
@@ -159,15 +163,18 @@ class Render:
         self.body_angles["head"] = self.rotation_y(beta_head)
         self.body_angles["helmet"] = self.body_angles["head"]
 
-        # arms and legs have an additional x-axis rotation
+        # arms have an additional x and z-axis rotation
         alpha_r_arm = radians(self.vrra)
-        self.body_angles["r_arm"] = self.rotation_x(alpha_r_arm)
+        beta_r_arm = radians(self.hrra)
+        self.body_angles["r_arm"] = np.dot(self.rotation_x(alpha_r_arm), self.rotation_z(beta_r_arm))
         self.body_angles["r_arm_layer"] = self.body_angles["r_arm"]
 
         alpha_l_arm = radians(self.vrla)
-        self.body_angles["l_arm"] = self.rotation_x(alpha_l_arm)
+        beta_l_arm = radians(self.hrla)
+        self.body_angles["l_arm"] = np.dot(self.rotation_x(alpha_l_arm), self.rotation_z(beta_l_arm))
         self.body_angles["l_arm_layer"] = self.body_angles["l_arm"]
 
+        # legs have an additional x-axis rotation
         alpha_r_leg = radians(self.vrrl)
         self.body_angles["r_leg"] = self.rotation_x(alpha_r_leg)
         self.body_angles["r_leg_layer"] = self.body_angles["r_leg"]

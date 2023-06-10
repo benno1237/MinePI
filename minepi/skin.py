@@ -211,7 +211,9 @@ class Skin:
             vrll: int = 0,
             vrrl: int = 0,
             vrla: int = 0,
+            hrla: int = 0,
             vrra: int = 0,
+            hrra: int = 0,
             vrc: int = 30,
             ratio: int = 12,
             display_hair: bool = True,
@@ -235,8 +237,12 @@ class Skin:
             Vertical rotation of the right leg
         vrla: int
             Vertical rotation of the left arm
+        hrla: int
+            Horizontal rotation of the left arm
         vrra: int
             Vertical rotation of the right arm
+        hrra: int
+            Horizontal rotation of the right arm
         vrc: int
             Vertical rotation of the cape
             Not actually in degrees, use random values please until you find one you like
@@ -264,7 +270,9 @@ class Skin:
             vrll=vrll,
             vrrl=vrrl,
             vrla=vrla,
+            hrla=hrla,
             vrra=vrra,
+            hrra=hrra,
             vrc=vrc,
             ratio=ratio,
             head_only=False,
