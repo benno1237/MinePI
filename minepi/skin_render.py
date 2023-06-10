@@ -59,6 +59,7 @@ class Render:
             display_layers: bool = False,
             display_cape: bool = False,
             aa: bool = False,
+            transparent_background: bool = False,
     ):
         self.vr = vr
         self.hr = hr
@@ -77,6 +78,7 @@ class Render:
         self.layers = display_layers
         self.player = player
         self.aa = aa
+        self.transparent_background = transparent_background
         self.rendered_image = None
 
         self.loop = asyncio.get_event_loop()
@@ -1723,7 +1725,8 @@ class Render:
         real_width = src_width / 2
         real_height = src_height / 2
 
-        image = Image.new('RGBA', (int(src_width), int(src_height)))
+        color = (0, 0, 0, 0) if self.transparent_background else (0, 0, 0, 1)
+        image = Image.new('RGBA', (int(src_width), int(src_height)), color=color)
 
         display_order = self.get_display_order()
         draw = ImageDraw.Draw(image)
