@@ -47,7 +47,9 @@ class Render:
             hr: int = 0,
             hrh: int = 0,
             vrll: int = 0,
+            hrll: int = 0,
             vrrl: int = 0,
+            hrrl: int = 0,
             vrla: int = 0,
             hrla: int = 0,
             vrra: int = 0,
@@ -64,7 +66,9 @@ class Render:
         self.hr = hr
         self.hrh = hrh
         self.vrll = vrll
+        self.hrll = hrll
         self.vrrl = vrrl
+        self.hrrl = hrrl
         self.vrla = vrla
         self.hrla = hrla
         self.vrra = vrra
@@ -174,13 +178,15 @@ class Render:
         self.body_angles["l_arm"] = np.dot(self.rotation_x(alpha_l_arm), self.rotation_z(beta_l_arm))
         self.body_angles["l_arm_layer"] = self.body_angles["l_arm"]
 
-        # legs have an additional x-axis rotation
+        # legs have an additional x and z-axis rotation
         alpha_r_leg = radians(self.vrrl)
-        self.body_angles["r_leg"] = self.rotation_x(alpha_r_leg)
+        beta_r_leg = radians(self.hrrl)
+        self.body_angles["r_leg"] = np.dot(self.rotation_x(alpha_r_leg), self.rotation_z(beta_r_leg))
         self.body_angles["r_leg_layer"] = self.body_angles["r_leg"]
 
         alpha_l_leg = radians(self.vrll)
-        self.body_angles["l_leg"] = self.rotation_x(alpha_l_leg)
+        beta_l_leg = radians(self.hrll)
+        self.body_angles["l_leg"] = np.dot(self.rotation_x(alpha_l_leg), self.rotation_z(beta_l_leg))
         self.body_angles["l_leg_layer"] = self.body_angles["l_leg"]
 
     def determine_faces(self):
