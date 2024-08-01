@@ -9,9 +9,6 @@ from typing import Optional
 
 from .skin import Skin
 
-if typing.TYPE_CHECKING:
-    from .player import Player
-
 
 __all__ = [
     "uuid_to_dashed",
@@ -655,6 +652,7 @@ async def get_players_by_name(names: list, session: aiohttp.ClientSession = None
     async with session.post("https://api.mojang.com/profiles/minecraft", json=names) as resp:
         if resp.status == 200:
             for entry in await resp.json():
+                from .player import Player
                 players.append(Player(uuid=entry["id"], name=entry["name"], session=session if not close else None))
 
     if close:
